@@ -61,7 +61,7 @@ class Inventory(db.Model):
     updated_at = db.Column(db.DateTime, onupdate=db.func.now())
     
     importation = db.relationship("Importation", backref='inventories')
-    sale =db.relationship("sale", backref='inventories')
+    sale =db.relationship("Sale", backref='inventories')
     invoice =db.relationship("Invoice", backref='inventories')
     report =db.relationship("Report", backref='inventories')
     
@@ -158,7 +158,7 @@ class Report(db.Model):
     importation_id = db.Column(db.Integer, nullable=False)
 
 
-class Notificaton(db.Model):
+class Notification(db.Model):
     __tablename__ ='notifications'
 
     id = db.Column(db.Integer, primary_key=True)
