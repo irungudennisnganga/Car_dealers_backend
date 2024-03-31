@@ -1,18 +1,20 @@
 from sqlalchemy_serializer import SerializerMixin
 from sqlalchemy.ext.hybrid import hybrid_property
-from config import db
+from sqlalchemy import UniqueConstraint
+from sqlalchemy.orm import validates
+from config import db,bcrypt
 
 class User(db.Model, SerializerMixin):
     __tablename__ ='user'
 
     id = db.Column(db.Integer, primary_key=True)
-    first_name = db.Column(db.String)
-    last_name = db.Column(db.String)
-    email = db.Column(db.String)
-    image = db.Column(db.String)
-    role = db.Column(db.String)
-    contact = db.Column(db.Integer)
-    _password_hash = db.Column(db.String)
+    first_name = db.Column(db.String, nullable=False)
+    last_name = db.Column(db.String,nullable=False)
+    email = db.Column(db.String,nullable=False, unique=True )
+    image = db.Column(db.String,nullable=False)
+    role = db.Column(db.String,nullable=False)
+    contact = db.Column(db.Integer, nullable=False, unique=True)
+    _password_hash = db.Column(db.String,nullable=False)
     created_at = db.Column(db.DateTime, server_default=db.func.now())
     updated_at = db.Column(db.DateTime, onupdate=db.func.now())
     
@@ -33,7 +35,35 @@ class User(db.Model, SerializerMixin):
             'role':self.role,
             'contact':self.contact
         }
+        # validates email format
+    @validates('email')
+    def validate_email(self, key, value):
+        if '@' not in value and '.com' not in value:
+            raise ValueError("Invalid email")
+        return value
+    
+    @hybrid_property
+    def password_hash(self):
+        return self._password_hash
+    
+    # sets the password encryption using bycrpt
+    @password_hash.setter
+    def password_hash(self,password):
+        password_hash = bcrypt.generate_password_hash(
+            password.encode('utf-8'))
+        self._password_hash = password_hash.decode('utf-8')
 
+    # used t authenticate if teh password provided is 
+    def authenticate(self,password):
+        return bcrypt.check_password_hash(
+            self._password_hash, password.encode('utf-8'))
+    
+    
+    
+    
+
+    def __repr__(self):
+        return f"User('{self.first_name}', '{self.email}, '{self.role}'')"
 class Inventory(db.Model, SerializerMixin):
     __tablename__ ='inventories'   
 

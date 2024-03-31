@@ -1,8 +1,8 @@
-"""All tables
+"""add all tables and their properties
 
-Revision ID: 6f6dfce108dc
-Revises: 8e9e1ae19bbf
-Create Date: 2024-03-28 23:11:44.563582
+Revision ID: ab90b2ca8251
+Revises: 
+Create Date: 2024-03-31 13:31:26.866032
 
 """
 from alembic import op
@@ -10,8 +10,8 @@ import sqlalchemy as sa
 
 
 # revision identifiers, used by Alembic.
-revision = '6f6dfce108dc'
-down_revision = '8e9e1ae19bbf'
+revision = 'ab90b2ca8251'
+down_revision = None
 branch_labels = None
 depends_on = None
 
@@ -30,6 +30,53 @@ def upgrade():
     sa.Column('updated_at', sa.DateTime(), nullable=True),
     sa.PrimaryKeyConstraint('id')
     )
+    op.create_table('user',
+    sa.Column('id', sa.Integer(), nullable=False),
+    sa.Column('first_name', sa.String(), nullable=False),
+    sa.Column('last_name', sa.String(), nullable=False),
+    sa.Column('email', sa.String(), nullable=False),
+    sa.Column('image', sa.String(), nullable=False),
+    sa.Column('role', sa.String(), nullable=False),
+    sa.Column('contact', sa.Integer(), nullable=False),
+    sa.Column('_password_hash', sa.String(), nullable=False),
+    sa.Column('created_at', sa.DateTime(), server_default=sa.text('(CURRENT_TIMESTAMP)'), nullable=True),
+    sa.Column('updated_at', sa.DateTime(), nullable=True),
+    sa.PrimaryKeyConstraint('id'),
+    sa.UniqueConstraint('contact'),
+    sa.UniqueConstraint('email')
+    )
+    op.create_table('inventories',
+    sa.Column('id', sa.Integer(), nullable=False),
+    sa.Column('make', sa.String(), nullable=False),
+    sa.Column('image', sa.String(), nullable=False),
+    sa.Column('price', sa.Integer(), nullable=False),
+    sa.Column('currency', sa.String(), nullable=False),
+    sa.Column('model', sa.String(), nullable=False),
+    sa.Column('year', sa.String(), nullable=False),
+    sa.Column('VIN', sa.Integer(), nullable=False),
+    sa.Column('color', sa.String(), nullable=False),
+    sa.Column('mileage', sa.Integer(), nullable=False),
+    sa.Column('body_style', sa.String(), nullable=False),
+    sa.Column('transmission', sa.String(), nullable=False),
+    sa.Column('fuel_type', sa.String(), nullable=False),
+    sa.Column('engine_size', sa.String(), nullable=False),
+    sa.Column('drive_type', sa.String(), nullable=False),
+    sa.Column('trim_level', sa.String(), nullable=False),
+    sa.Column('gallery', sa.String(), nullable=True),
+    sa.Column('condition', sa.String(), nullable=False),
+    sa.Column('availability', sa.String(), nullable=False),
+    sa.Column('cylinder', sa.Integer(), nullable=True),
+    sa.Column('doors', sa.Integer(), nullable=False),
+    sa.Column('features', sa.String(), nullable=True),
+    sa.Column('stock_number', sa.Integer(), nullable=False),
+    sa.Column('purchase_cost', sa.Integer(), nullable=False),
+    sa.Column('profit', sa.Integer(), nullable=True),
+    sa.Column('user_id', sa.Integer(), nullable=False),
+    sa.Column('created_at', sa.DateTime(), server_default=sa.text('(CURRENT_TIMESTAMP)'), nullable=True),
+    sa.Column('updated_at', sa.DateTime(), nullable=True),
+    sa.ForeignKeyConstraint(['user_id'], ['user.id'], ),
+    sa.PrimaryKeyConstraint('id')
+    )
     op.create_table('notifications',
     sa.Column('id', sa.Integer(), nullable=False),
     sa.Column('user_id', sa.Integer(), nullable=False),
@@ -46,10 +93,24 @@ def upgrade():
     sa.Column('customer_id', sa.Integer(), nullable=False),
     sa.Column('invoice_id', sa.Integer(), nullable=False),
     sa.Column('amount_paid', sa.Integer(), nullable=False),
-    sa.Column('commision', sa.Integer(), nullable=False),
+    sa.Column('commission', sa.Integer(), nullable=False),
     sa.Column('time_stamp', sa.DateTime(), server_default=sa.text('(CURRENT_TIMESTAMP)'), nullable=True),
     sa.ForeignKeyConstraint(['customer_id'], ['customers.id'], ),
     sa.ForeignKeyConstraint(['user_id'], ['user.id'], ),
+    sa.PrimaryKeyConstraint('id')
+    )
+    op.create_table('importations',
+    sa.Column('id', sa.Integer(), nullable=False),
+    sa.Column('country_of_origin', sa.String(), nullable=False),
+    sa.Column('transport_fee', sa.Integer(), nullable=False),
+    sa.Column('currency', sa.String(), nullable=False),
+    sa.Column('import_duty', sa.Integer(), nullable=False),
+    sa.Column('import_date', sa.String(), nullable=False),
+    sa.Column('import_document', sa.String(), nullable=False),
+    sa.Column('car_id', sa.Integer(), nullable=False),
+    sa.Column('created_at', sa.DateTime(), server_default=sa.text('(CURRENT_TIMESTAMP)'), nullable=True),
+    sa.Column('updated_at', sa.DateTime(), nullable=True),
+    sa.ForeignKeyConstraint(['car_id'], ['inventories.id'], ),
     sa.PrimaryKeyConstraint('id')
     )
     op.create_table('reports',
@@ -96,13 +157,13 @@ def upgrade():
     sa.Column('balance', sa.Integer(), nullable=False),
     sa.Column('total_amount', sa.Integer(), nullable=False),
     sa.Column('installments', sa.Integer(), nullable=False),
-    sa.Column('pending_cleard', sa.String(), nullable=False),
+    sa.Column('pending_cleared', sa.String(), nullable=False),
     sa.Column('customer_id', sa.Integer(), nullable=False),
     sa.Column('vehicle_id', sa.Integer(), nullable=False),
     sa.Column('signature', sa.String(), nullable=False),
     sa.Column('warranty', sa.String(), nullable=False),
     sa.Column('terms_and_conditions', sa.String(), nullable=False),
-    sa.Column('agreemnet_details', sa.String(), nullable=False),
+    sa.Column('agreement_details', sa.String(), nullable=False),
     sa.Column('additional_accessories', sa.String(), nullable=False),
     sa.Column('notes_instructions', sa.String(), nullable=False),
     sa.Column('payment_proof', sa.String(), nullable=False),
@@ -114,39 +175,18 @@ def upgrade():
     sa.ForeignKeyConstraint(['vehicle_id'], ['inventories.id'], ),
     sa.PrimaryKeyConstraint('id')
     )
-    with op.batch_alter_table('importations', schema=None) as batch_op:
-        batch_op.add_column(sa.Column('created_at', sa.DateTime(), server_default=sa.text('(CURRENT_TIMESTAMP)'), nullable=True))
-        batch_op.add_column(sa.Column('updated_at', sa.DateTime(), nullable=True))
-        batch_op.alter_column('transport_fee',
-               existing_type=sa.VARCHAR(),
-               type_=sa.Integer(),
-               existing_nullable=False)
-        batch_op.alter_column('import_duty',
-               existing_type=sa.VARCHAR(),
-               type_=sa.Integer(),
-               existing_nullable=False)
-
     # ### end Alembic commands ###
 
 
 def downgrade():
     # ### commands auto generated by Alembic - please adjust! ###
-    with op.batch_alter_table('importations', schema=None) as batch_op:
-        batch_op.alter_column('import_duty',
-               existing_type=sa.Integer(),
-               type_=sa.VARCHAR(),
-               existing_nullable=False)
-        batch_op.alter_column('transport_fee',
-               existing_type=sa.Integer(),
-               type_=sa.VARCHAR(),
-               existing_nullable=False)
-        batch_op.drop_column('updated_at')
-        batch_op.drop_column('created_at')
-
     op.drop_table('invoices')
     op.drop_table('sales')
     op.drop_table('reports')
+    op.drop_table('importations')
     op.drop_table('receipts')
     op.drop_table('notifications')
+    op.drop_table('inventories')
+    op.drop_table('user')
     op.drop_table('customers')
     # ### end Alembic commands ###

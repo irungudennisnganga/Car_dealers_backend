@@ -1,11 +1,14 @@
-from config import app, db
+from config import app, db,bcrypt
 from models import User, Inventory, Importation, Customer, Sale, Invoice, Report, Notification, Receipt
 
 def seed_data():
     with app.app_context():
         # Add users
-        user1 = User(first_name='John', last_name='Doe', email='john@example.com', image='avatar.jpg', role='admin', contact=1234567890)
-        user2 = User(first_name='Jane', last_name='Smith', email='jane@example.com', image='avatar.jpg', role='seller', contact=9876543210)
+        password_hash = bcrypt.generate_password_hash('mypassword').decode('utf-8')
+        password_hash2 = bcrypt.generate_password_hash('password').decode('utf-8')
+
+        user1 = User(first_name='Dennis', last_name='Irungu', email='irungud220@gmail.com', image='avatar.jpg', role='admin', contact=1234567890,_password_hash=password_hash)
+        user2 = User(first_name='Jane', last_name='Smith', email='jane@example.com', image='avatar.jpg', role='seller', contact=9876543210, _password_hash=password_hash2)
         db.session.add(user1)
         db.session.add(user2)
 
@@ -34,8 +37,8 @@ def seed_data():
         db.session.add(sale2)
 
         # Add invoices
-        invoice1 = Invoice(date_of_purchase='2023-03-01', method='credit card', amount_paid=14000, fee=500, tax=1000, currency='USD', seller_id=1, sale_id=1, balance=1000, total_amount=15000, installments=1, pending_cleard='no', customer_id=1, vehicle_id=1, signature='signature.jpg', warranty='1 year', terms_and_conditions='Terms', agreemnet_details='Details', additional_accessories='Accessories', notes_instructions='Instructions', payment_proof='proof.jpg')
-        invoice2 = Invoice(date_of_purchase='2023-04-01', method='cash', amount_paid=18500, fee=700, tax=1500, currency='USD', seller_id=2, sale_id=2, balance=500, total_amount=20000, installments=1, pending_cleard='no', customer_id=2, vehicle_id=2, signature='signature.jpg', warranty='2 years', terms_and_conditions='Terms', agreemnet_details='Details', additional_accessories='Accessories', notes_instructions='Instructions', payment_proof='proof.jpg')
+        invoice1 = Invoice(date_of_purchase='2023-03-01', method='credit card', amount_paid=14000, fee=500, tax=1000, currency='USD', seller_id=1, sale_id=1, balance=1000, total_amount=15000, installments=1, pending_cleared='no', customer_id=1, vehicle_id=1, signature='signature.jpg', warranty='1 year', terms_and_conditions='Terms', agreement_details='Details', additional_accessories='Accessories', notes_instructions='Instructions', payment_proof='proof.jpg')
+        invoice2 = Invoice(date_of_purchase='2023-04-01', method='cash', amount_paid=18500, fee=700, tax=1500, currency='USD', seller_id=2, sale_id=2, balance=500, total_amount=20000, installments=1, pending_cleared='no', customer_id=2, vehicle_id=2, signature='signature.jpg', warranty='2 years', terms_and_conditions='Terms', agreement_details='Details', additional_accessories='Accessories', notes_instructions='Instructions', payment_proof='proof.jpg')
         db.session.add(invoice1)
         db.session.add(invoice2)
 
@@ -52,8 +55,8 @@ def seed_data():
         db.session.add(notification2)
 
         # Add receipts
-        receipt1 = Receipt(user_id=1, customer_id=1, invoice_id=1, amount_paid=14000, commision=500)
-        receipt2 = Receipt(user_id=2, customer_id=2, invoice_id=2, amount_paid=18500, commision=700)
+        receipt1 = Receipt(user_id=1, customer_id=1, invoice_id=1, amount_paid=14000, commission=500)
+        receipt2 = Receipt(user_id=2, customer_id=2, invoice_id=2, amount_paid=18500, commission=700)
         db.session.add(receipt1)
         db.session.add(receipt2)
 
