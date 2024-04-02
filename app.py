@@ -1,13 +1,13 @@
-from models import User,Inventory
-from config import app,api,db,bcrypt
+from models import User, Inventory, Importation
+from config import app, api, db, bcrypt
 from flask_restful import Resource
-from flask import request,jsonify,make_response
+from flask import request, jsonify, make_response
 from flask_bcrypt import check_password_hash
-from flask_jwt_extended import JWTManager,create_access_token,get_jwt_identity,jwt_required
+from flask_jwt_extended import JWTManager, create_access_token, get_jwt_identity, jwt_required
 
 
 class Login(Resource):
-    
+
     def post(self):
         email = request.json.get("email")
         password = request.json.get("password")
@@ -22,22 +22,23 @@ class Login(Resource):
         if check_password_hash(user._password_hash, password):
             access_token = create_access_token(identity=email)
             return make_response(jsonify(access_token=access_token), 200)
-        
-        return make_response(jsonify({"message":"Wrong password"}), 422)
+
+        return make_response(jsonify({"message": "Wrong password"}), 422)
+
 
 class SignupUser(Resource):
-    
+
     def post(self):
         data = request.json
         first_name = data.get('first_name')
         last_name = data.get('last_name')
         image = data.get('image')
-        contact= data.get('contact')
+        contact = data.get('contact')
         email = data.get('email')
-        role =data.get('role')
+        role = data.get('role')
         password = data.get('password')
-        
-        if not all([first_name, last_name, image, email,contact,role, password]):
+
+        if not all([first_name, last_name, image, email, contact, role, password]):
             return make_response(jsonify({'errors': ['Missing required data']}), 400)
 
         if User.query.filter_by(email=email).first():
@@ -50,13 +51,13 @@ class SignupUser(Resource):
             email=email,
             contact=contact,
             role=role,
-            _password_hash=bcrypt.generate_password_hash(password).decode('utf-8')
+            _password_hash=bcrypt.generate_password_hash(
+                password).decode('utf-8')
         )
         db.session.add(new_user)
         db.session.commit()
-        
-        return make_response(jsonify({'message': 'Sign up successful'}), 200)
 
+        return make_response(jsonify({'message': 'Sign up successful'}), 200)
 
 
 # in this class we are getting all the users and serializering each user using list comprehension
@@ -64,35 +65,38 @@ class AllUsers(Resource):
     # @jwt_required()
     def get(self):
         user = [n.serializer() for n in User.query.all()]
-        
+
         # if no user is found the method will stop there and return "No users found"
         if not user:
-            return {"message":"No users found"}
-        
+            return {"message": "No users found"}
+
         return make_response(jsonify(user), 200)
 
-# in this function we are getting a specific user by their id 
+# in this function we are getting a specific user by their id
+
+
 class OneUser(Resource):
     # @jwt_required()
-    def get(self,id):
+    def get(self, id):
         # here one is quering all the users available filtering them by their id's, after getting the first user, we serialize the user
-        # using the serializer() function found in the models  
-        user = User.query.filter_by(id = id).first().serializer()
-        
+        # using the serializer() function found in the models
+        user = User.query.filter_by(id=id).first().serializer()
+
         # if no user is found the method will stop there and return "No users found"
         if not user:
-            return {"message":"No user found"}
-        #  after getting a user we jsonify the data received 
+            return {"message": "No user found"}
+        #  after getting a user we jsonify the data received
         response = make_response(
             jsonify(user),
             200
         )
-        
+
         return response
-    
+
 # inventory
 
-class INVENTORY(Resource): 
+
+class INVENTORY(Resource):
     # POST
     def post(self):
         data = request.json
@@ -125,60 +129,81 @@ class INVENTORY(Resource):
         )
         db.session.add(new_inventory_item)
         db.session.commit()
-        return make_response (jsonify({'message': 'Inventory created successfully'}), 201)
-    
+        return make_response(jsonify({'message': 'Inventory created successfully'}), 201)
+
     # GET
-    
-    def get(self,id=None):
+
+    def get(self, id=None):
         if id:
             inventory_item = Inventory.query.filter_by(id=id).first()
             if inventory_item:
-                return make_response (jsonify(inventory_item.serializer()))
+                return make_response(jsonify(inventory_item.serializer()))
             return {'message': 'Inventory item not found'}, 404
         else:
             items = Inventory.query.all()
-            return make_response (jsonify([item.serializer()for item in items]))
-        
+            return make_response(jsonify([item.serializer()for item in items]))
+
         # PATCH
-        
+
 
 class inventory_update(Resource):
-    def patch(self,id):
+    def patch(self, id):
         inventory_item = Inventory.query.filter_by(id=id).first()
         if inventory_item:
             data = request.json
             for key, value in data.items():
-                if hasattr(inventory_item,key):
-                    setattr(inventory_item,key,value)
+                if hasattr(inventory_item, key):
+                    setattr(inventory_item, key, value)
 
                 db.session.commit()
-                return {'message':"Inventory item updated successfully"},200
-            return {'meaage':'Inventory item not found'}, 404
-        
+                return {'message': "Inventory item updated successfully"}, 200
+            return {'meaage': 'Inventory item not found'}, 404
+
         # DELETE
-        
-    def delete(self,id):
+
+    def delete(self, id):
         inventory_item = Inventory.query.filter_by(id=id).first()
         if inventory_item:
             db.session.delete(inventory_item)
             db.session.commit()
-            
-            return{'message': 'Inventory item deleted successfully'}, 200
+
+            return {'message': 'Inventory item deleted successfully'}, 200
         return {'message': "Inventory item not found"}, 404
 
 
+class Importations(Resource):
+    @jwt_required()
+    def get(self):
+        importations = Importation.query.all()
+        serialized_importations = [importation.serializer()
+                                   for importation in importations]
+        return make_response(jsonify(serialized_importations), 200)
 
-    
+    # @jwt_required()
+    def post(self):
+        data = request.json
+        new_importation = Importation(
+            country_of_origin=data['country_of_origin'],
+            transport_fee=data['transport_fee'],
+            currency=data['currency'],
+            import_duty=data['import_duty'],
+            import_date=data['import_date'],
+            import_document=data['import_document'],
+            car_id=data['car_id']
+        )
+        db.session.add(new_importation)
+        db.session.commit()
+        return make_response(jsonify({'message': 'Importation created successfully'}), 201)
+
 
 api.add_resource(AllUsers, '/user')
 api.add_resource(OneUser, '/user/<int:id>')
 api.add_resource(Login, '/login')
 api.add_resource(SignupUser, '/signup')
-api.add_resource(inventory_update,"/inventory/<int:id>")
+api.add_resource(inventory_update, "/inventory/<int:id>")
 api.add_resource(INVENTORY, '/inventory')
-
-
+api.add_resource(Importations, '/importations')
 
 
 if __name__ == "__main__":
-    app.run(port=5555, debug=True) 
+    app.run(port=5555, debug=True)
