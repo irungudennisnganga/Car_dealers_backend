@@ -409,6 +409,7 @@ class Importations(Resource):
             })
         return make_response(jsonify(importations_data), 200)
 
+class AddImportation(Resource):
     # @jwt_required()
     def post(self):
         data = request.json
@@ -425,6 +426,33 @@ class Importations(Resource):
         db.session.commit()
         return make_response(jsonify({'message': 'Importation created successfully'}), 201)
 
+class UpdateImportation(Resource):
+    # @jwt_required()
+    def put(self, importation_id):
+        data = request.json
+        importation = Importation.query.get(importation_id)
+        if not importation:
+            return make_response(jsonify({'message': 'Importation not found'}), 404)
+        importation.country_of_origin = data.get('country_of_origin', importation.country_of_origin)
+        importation.transport_fee = data.get('transport_fee', importation.transport_fee)
+        importation.currency = data.get('currency', importation.currency)
+        importation.import_duty = data.get('import_duty', importation.import_duty)
+        importation.import_date = data.get('import_date', importation.import_date)
+        importation.import_document = data.get('import_document', importation.import_document)
+        importation.car_id = data.get('car_id', importation.car_id)
+        db.session.commit()
+        return make_response(jsonify({'message': 'Importation updated successfully'}), 200)
+
+class DeleteImportation(Resource):
+    # @jwt_required()
+    def delete(self, importation_id):
+        importation = Importation.query.get(importation_id)
+        if not importation:
+            return make_response(jsonify({'message': 'Importation not found'}), 404)
+        db.session.delete(importation)
+        db.session.commit()
+        return make_response(jsonify({'message': 'Importation deleted successfully'}), 200)
+
 
 
 api.add_resource(AllUsers, '/users')
@@ -435,6 +463,10 @@ api.add_resource(SignupUser, '/signup')
 api.add_resource(inventory_update, "/inventory/<int:id>")
 api.add_resource(INVENTORY, '/inventory')
 api.add_resource(Importations, '/importations')
+api.add_resource(AddImportation, '/importations/add')
+api.add_resource(UpdateImportation, '/importations/update/<int:importation_id>')
+api.add_resource(DeleteImportation, '/importations/delete/<int:importation_id>')
+
 
 
 if __name__ == "__main__":
