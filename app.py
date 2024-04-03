@@ -52,41 +52,72 @@ class SignupUser(Resource):
 
     @jwt_required()
     def post(self):
-        # user_id = get_jwt_identity()
+        user_id = get_jwt_identity()
         
-        # check_user_role= User.query.filter_by(id=user_id).first()
+        check_user_role= User.query.filter_by(id=user_id).first()
         
-        data = request.json
-        first_name = data.get('first_name')
-        last_name = data.get('last_name')
-        image = data.get('image')
-        contact = data.get('contact')
-        email = data.get('email')
-        role = data.get('role')
-        password = data.get('password')
+        if check_user_role.role == 'admin':
+        
+            data = request.json
+            first_name = data.get('first_name')
+            last_name = data.get('last_name')
+            image = data.get('image')
+            contact = data.get('contact')
+            email = data.get('email')
+            role = 'seller'
+            password = data.get('password')
 
-        if not all([first_name, last_name, image, email, contact, role, password]):
-            return make_response(jsonify({'errors': ['Missing required data']}), 400)
+            if not all([first_name, last_name, image, email, contact, role, password]):
+                return make_response(jsonify({'errors': ['Missing required data']}), 400)
 
-        if User.query.filter_by(email=email).first():
-            return make_response(jsonify({'message': 'User already exists'}), 400)
+            if User.query.filter_by(email=email).first():
+                return make_response(jsonify({'message': 'User already exists'}), 400)
 
-        new_user = User(
-            first_name=first_name,
-            last_name=last_name,
-            image=image,
-            email=email,
-            contact=contact,
-            role=role,
-            _password_hash=bcrypt.generate_password_hash(
-                password).decode('utf-8')
-        )
-        db.session.add(new_user)
-        db.session.commit()
+            new_user = User(
+                first_name=first_name,
+                last_name=last_name,
+                image=image,
+                email=email,
+                contact=contact,
+                role=role,
+                _password_hash=bcrypt.generate_password_hash(
+                    password).decode('utf-8')
+            )
+            db.session.add(new_user)
+            db.session.commit()
 
-        return make_response(jsonify({'message': 'Sign up successful'}), 200)
+            return make_response(jsonify({'message': 'Sign up successful'}), 200)
 
+        if check_user_role.role =='super admin':
+            data = request.json
+            first_name = data.get('first_name')
+            last_name = data.get('last_name')
+            image = data.get('image')
+            contact = data.get('contact')
+            email = data.get('email')
+            role = data.get('role')
+            password = data.get('password')
 
+            if not all([first_name, last_name, image, email, contact, role, password]):
+                return make_response(jsonify({'errors': ['Missing required data']}), 400)
+
+            if User.query.filter_by(email=email).first():
+                return make_response(jsonify({'message': 'User already exists'}), 400)
+
+            new_user = User(
+                first_name=first_name,
+                last_name=last_name,
+                image=image,
+                email=email,
+                contact=contact,
+                role=role,
+                _password_hash=bcrypt.generate_password_hash(
+                    password).decode('utf-8')
+            )
+            db.session.add(new_user)
+            db.session.commit()
+
+            return make_response(jsonify({'message': 'Sign up successful'}), 200)
 # in this class we are getting all the users and serializering each user using list comprehension
 class AllUsers(Resource):
     @jwt_required()
@@ -124,6 +155,27 @@ class AllUsers(Resource):
         return make_response(jsonify(user), 200)
 
 # in this function we are getting a specific user by their id
+class UserAccount(Resource):
+    @jwt_required()
+    def get(self):
+        user_id =get_jwt_identity()
+
+        user = User.query.filter_by(id=user_id).first()
+        
+        user_data = {
+                'id': user.id,
+                'first_name': user.first_name,
+                'last_name': user.last_name,
+                'image': user.image,
+                'email': user.email,
+                'role': user.role,
+                'contact': user.contact,
+            }
+        
+        return make_response(
+            jsonify(user_data),
+            200
+        )
 
 
 class OneUser(Resource):
@@ -168,7 +220,7 @@ class OneUser(Resource):
     def patch(self, id):
         user_id = get_jwt_identity()
         
-        chech_user_role= User.query.filter_by(id=user_id).first()
+        check_user_role= User.query.filter_by(id=user_id).first()
         
         # Get the JSON data from the request
         data = request.json
@@ -180,7 +232,7 @@ class OneUser(Resource):
         if not user:
             return make_response(jsonify({"message": "No user to update"}), 404)
         
-        if chech_user_role.role == "admin" :
+        if check_user_role.role == "admin" :
             # try:
                 # Update user attributes if they are provided in the JSON data
             if 'first_name' in data:
@@ -201,7 +253,7 @@ class OneUser(Resource):
             
             # Return a success response
             return make_response(jsonify({'message': 'User updated successfully'}), 200)
-        if chech_user_role.role == "super_admin":
+        if check_user_role.role == "super_admin":
             if 'first_name' in data:
                 user.first_name = data.get('first_name')
             if 'last_name' in data:
@@ -229,7 +281,7 @@ class INVENTORY(Resource):
     def post(self):
         user_id = get_jwt_identity()
         
-        # chech_user_role= User.query.filter_by(id=user_id).first()
+        # check_user_role= User.query.filter_by(id=user_id).first()
         data = request.json
         new_inventory_item = Inventory(
             make=data.get('make'),
@@ -263,42 +315,80 @@ class INVENTORY(Resource):
         return make_response(jsonify({'message': 'Inventory created successfully'}), 201)
 
     # GET
-
-    def get(self, id=None):
-        if id:
-            inventory_item = Inventory.query.filter_by(id=id).first()
-            if inventory_item:
-                return make_response(jsonify(inventory_item.serializer()))
-            return {'message': 'Inventory item not found'}, 404
-        else:
-            items = Inventory.query.all()
-            return make_response(jsonify([item.serializer()for item in items]))
+    @jwt_required()
+    def get(self):
+        
+        items = Inventory.query.all()
+        return make_response(jsonify([ {
+                'id': item.id,
+                'make': item.make,
+                'image': item.image,
+                'price': item.price,
+                'currency': item.currency,
+                'model': item.model,
+                'year': item.year,
+                'VIN': item.VIN,
+                'color': item.color,
+                'mileage': item.mileage,
+                'body_style': item.body_style,
+                'transmission': item.transmission,
+                'fuel_type': item.fuel_type,
+                'engine_size': item.engine_size,
+                'drive_type': item.drive_type,
+                'trim_level': item.trim_level,
+                'gallery': item.gallery,
+                'condition': item.condition,
+                'availability': item.availability,
+                'cylinder': item.cylinder,
+                'doors': item.doors,
+                'features': item.features,
+                'stock_number': item.stock_number,
+                'purchase_cost': item.purchase_cost,
+                'profit': item.profit,
+                
+            }for item in items]))
 
         # PATCH
 
 
 class inventory_update(Resource):
+    @jwt_required()
+    
     def patch(self, id):
+        user_id = get_jwt_identity()
+        
+        check_user_role= User.query.filter_by(id=user_id).first()
+        
         inventory_item = Inventory.query.filter_by(id=id).first()
-        if inventory_item:
-            data = request.json
-            for key, value in data.items():
-                if hasattr(inventory_item, key):
-                    setattr(inventory_item, key, value)
+        if check_user_role.role =='admin' or check_user_role.role =='super admin':
+            if inventory_item:
+                data = request.json
+                for key, value in data.items():
+                    if hasattr(inventory_item, key):
+                        setattr(inventory_item, key, value)
 
-                db.session.commit()
-                return {'message': "Inventory item updated successfully"}, 200
-            return {'meaage': 'Inventory item not found'}, 404
+                    db.session.commit()
+                    return {'message': "Inventory item updated successfully"}, 200
+                return {'meaage': 'Inventory item not found'}, 404
+        else:
+            return {'message': "User has no access rights to update Inventory"}, 422
+            
 
         # DELETE
-
+    @jwt_required()
     def delete(self, id):
-        inventory_item = Inventory.query.filter_by(id=id).first()
-        if inventory_item:
-            db.session.delete(inventory_item)
-            db.session.commit()
+        user_id = get_jwt_identity()
+        
+        check_user_role= User.query.filter_by(id=user_id).first()
+        if check_user_role.role == 'super admin' or check_user_role.role == 'admin' :
+            inventory_item = Inventory.query.filter_by(id=id).first()
+            if inventory_item:
+                db.session.delete(inventory_item)
+                db.session.commit()
 
-            return {'message': 'Inventory item deleted successfully'}, 200
+                return {'message': 'Inventory item deleted successfully'}, 200
+        else:
+            return {'message': 'User has no access rights to delete'}, 422
         return {'message': "Inventory item not found"}, 404
 
 
@@ -306,11 +396,20 @@ class Importations(Resource):
     @jwt_required()
     def get(self):
         importations = Importation.query.all()
-        serialized_importations = [importation.serializer()
-                                   for importation in importations]
+        serialized_importations = [{
+                'id': importation.id,
+                'country_of_origin': importation.country_of_origin,
+                'transport_fee': importation.transport_fee,
+                'currency': importation.currency,
+                'import_duty': importation.import_duty,
+                'import_date': importation.import_date,
+                'import_document': importation.import_document,
+                'car_id': importation.car_id,
+            }
+            for importation in importations]
         return make_response(jsonify(serialized_importations), 200)
-
-    # @jwt_required()
+    
+    @jwt_required()
     def post(self):
         data = request.json
         new_importation = Importation(
@@ -329,6 +428,7 @@ class Importations(Resource):
 
 api.add_resource(AllUsers, '/users')
 api.add_resource(OneUser, '/user/<int:id>')
+api.add_resource(UserAccount, '/me')
 api.add_resource(Login, '/login')
 api.add_resource(SignupUser, '/signup')
 api.add_resource(inventory_update, "/inventory/<int:id>")

@@ -1,15 +1,30 @@
-from config import app, db,bcrypt
+from config import app, db, bcrypt
 from models import User, Inventory, Importation, Customer, Sale, Invoice, Report, Notification, Receipt
 
 def seed_data():
     with app.app_context():
+        # Delete all existing records
+        db.session.query(User).delete()
+        db.session.query(Inventory).delete()
+        db.session.query(Importation).delete()
+        db.session.query(Customer).delete()
+        db.session.query(Sale).delete()
+        db.session.query(Invoice).delete()
+        db.session.query(Report).delete()
+        db.session.query(Notification).delete()
+        db.session.query(Receipt).delete()
+        db.session.commit()
+
         # Add users
         password_hash = bcrypt.generate_password_hash('mypassword').decode('utf-8')
         password_hash2 = bcrypt.generate_password_hash('password').decode('utf-8')
 
         user1 = User(first_name='Dennis', last_name='Irungu', email='irungud220@gmail.com', image='avatar.jpg', role='admin', contact=1234567890,_password_hash=password_hash)
+        user3 = User(first_name='dennis', last_name='irungu', email='dennisnganga7148@gmail.com', image='avatar.jpg', role='super admin', contact=345678765, _password_hash=password_hash2)
+
         user2 = User(first_name='Jane', last_name='Smith', email='jane@example.com', image='avatar.jpg', role='seller', contact=9876543210, _password_hash=password_hash2)
         db.session.add(user1)
+        db.session.add(user3)
         db.session.add(user2)
 
         # Add inventories
