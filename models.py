@@ -13,7 +13,7 @@ class User(db.Model, SerializerMixin):
     email = db.Column(db.String,nullable=False, unique=True )
     image = db.Column(db.String,nullable=False)
     role = db.Column(db.String,nullable=False)
-    contact = db.Column(db.Integer, nullable=False, unique=True)
+    contact = db.Column(db.String, nullable=False, unique=True)
     _password_hash = db.Column(db.String,nullable=False)
     created_at = db.Column(db.DateTime, server_default=db.func.now())
     updated_at = db.Column(db.DateTime, onupdate=db.func.now())

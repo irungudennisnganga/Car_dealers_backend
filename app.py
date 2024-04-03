@@ -6,6 +6,28 @@ from flask_bcrypt import check_password_hash
 from flask_jwt_extended import JWTManager, create_access_token, get_jwt_identity, jwt_required
 
 
+class CheckSession(Resource):
+    @jwt_required() 
+    def get(self):
+        user_id = get_jwt_identity()
+        
+        user= User.query.filter_by(id=user_id).first()
+        
+        if  not user :
+            return {"message":"user not found"}
+        
+        user_data = {
+            "user_id":user.id,
+            "first_name":user.first_name,
+            "last_name":user.last_name,
+            "user_email":user.email,
+            "contact":user.contact,
+            "role":user.role,
+            "image":user.image,
+            
+        }    
+        
+        return make_response(jsonify(user_data), 200)
 class Login(Resource):
 
     def post(self):
@@ -20,7 +42,7 @@ class Login(Resource):
             return make_response(jsonify({"msg": "Wrong credentials"}), 401)
 
         if check_password_hash(user._password_hash, password):
-            access_token = create_access_token(identity=email)
+            access_token = create_access_token(identity=user.id)
             return make_response(jsonify(access_token=access_token), 200)
 
         return make_response(jsonify({"message": "Wrong password"}), 422)
@@ -28,7 +50,12 @@ class Login(Resource):
 
 class SignupUser(Resource):
 
+    @jwt_required()
     def post(self):
+        # user_id = get_jwt_identity()
+        
+        # check_user_role= User.query.filter_by(id=user_id).first()
+        
         data = request.json
         first_name = data.get('first_name')
         last_name = data.get('last_name')
@@ -62,13 +89,37 @@ class SignupUser(Resource):
 
 # in this class we are getting all the users and serializering each user using list comprehension
 class AllUsers(Resource):
-    # @jwt_required()
+    @jwt_required()
     def get(self):
-        user = [n.serializer() for n in User.query.all()]
-
-        # if no user is found the method will stop there and return "No users found"
-        if not user:
-            return {"message": "No users found"}
+        user_id = get_jwt_identity()
+        
+        check_user_role= User.query.filter_by(id=user_id).first()
+        
+        if check_user_role.role == "admin":
+            
+            user = [{
+                'id': n.id,
+                'first_name': n.first_name,
+                'last_name': n.last_name,
+                'email': n.email,
+                'contact': n.contact,
+            } for n in User.query.filter_by(role='seller').all()]
+            
+            return user
+        if check_user_role.role == "super admin":
+            
+            user = [{
+                'id': n.id,
+                'first_name': n.first_name,
+                'last_name': n.last_name,
+                'email': n.email,
+                'role': n.role,
+                'contact': n.contact,
+            } for n in User.query.all()]
+            
+            return user
+       
+        
 
         return make_response(jsonify(user), 200)
 
@@ -76,29 +127,109 @@ class AllUsers(Resource):
 
 
 class OneUser(Resource):
-    # @jwt_required()
+    @jwt_required()
+    
     def get(self, id):
+        user_id = get_jwt_identity()
+        
+        check_user_role= User.query.filter_by(id=user_id).first()
+        
+        
+        if check_user_role.role == "admin":
         # here one is quering all the users available filtering them by their id's, after getting the first user, we serialize the user
         # using the serializer() function found in the models
-        user = User.query.filter_by(id=id).first().serializer()
+            user = User.query.filter_by(id=id , role='seller').first()
 
+        if check_user_role.role == "super admin":
+       
+            user = User.query.filter_by(id=id).first()
         # if no user is found the method will stop there and return "No users found"
         if not user:
             return {"message": "No user found"}
+        
+        user_data = {
+                'id': user.id,
+                'first_name': user.first_name,
+                'last_name': user.last_name,
+                'image': user.image,
+                'email': user.email,
+                'role': user.role,
+                'contact': user.contact,
+            }
+
         #  after getting a user we jsonify the data received
         response = make_response(
-            jsonify(user),
+            jsonify(user_data),
             200
         )
 
         return response
+    @jwt_required()
+    def patch(self, id):
+        user_id = get_jwt_identity()
+        
+        chech_user_role= User.query.filter_by(id=user_id).first()
+        
+        # Get the JSON data from the request
+        data = request.json
+        
+        # Querying the user by their id
+        user = User.query.filter_by(id=id).first()
+        
+        # If no user is found, return an error response
+        if not user:
+            return make_response(jsonify({"message": "No user to update"}), 404)
+        
+        if chech_user_role.role == "admin" :
+            # try:
+                # Update user attributes if they are provided in the JSON data
+            if 'first_name' in data:
+                user.first_name = data.get('first_name')
+            if 'last_name' in data:
+                user.last_name = data.get('last_name')
+            if 'image' in data:
+                user.image = data.get('image')
+            if 'email' in data:
+                user.email = data.get('email')
+            if 'contact' in data:
+                user.contact = data.get('contact')
+            if 'role' in data:
+                user.role = data.get('role')
+            
+            # Commit the changes to the database
+            db.session.commit()
+            
+            # Return a success response
+            return make_response(jsonify({'message': 'User updated successfully'}), 200)
+        if chech_user_role.role == "super_admin":
+            if 'first_name' in data:
+                user.first_name = data.get('first_name')
+            if 'last_name' in data:
+                user.last_name = data.get('last_name')
+            if 'image' in data:
+                user.image = data.get('image')
+            if 'email' in data:
+                user.email = data.get('email')
+            if 'contact' in data:
+                user.contact = data.get('contact')
+            if 'role' in data:
+                user.role = data.get('role')
 
+            db.session.commit()
+            
+            # Return a success response
+            return make_response(jsonify({'message': 'User updated successfully'}), 200)
+        
 # inventory
 
 
 class INVENTORY(Resource):
     # POST
+    @jwt_required()
     def post(self):
+        user_id = get_jwt_identity()
+        
+        # chech_user_role= User.query.filter_by(id=user_id).first()
         data = request.json
         new_inventory_item = Inventory(
             make=data.get('make'),
@@ -125,7 +256,7 @@ class INVENTORY(Resource):
             stock_number=data.get('stock_number'),
             purchase_cost=data.get('purchase_cost'),
             profit=data.get('profit'),
-            user_id=data.get('user_id')
+            user_id=user_id
         )
         db.session.add(new_inventory_item)
         db.session.commit()
@@ -196,7 +327,7 @@ class Importations(Resource):
         return make_response(jsonify({'message': 'Importation created successfully'}), 201)
 
 
-api.add_resource(AllUsers, '/user')
+api.add_resource(AllUsers, '/users')
 api.add_resource(OneUser, '/user/<int:id>')
 api.add_resource(Login, '/login')
 api.add_resource(SignupUser, '/signup')
