@@ -393,23 +393,23 @@ class inventory_update(Resource):
 
 
 class Importations(Resource):
-    @jwt_required()
+    # @jwt_required()
     def get(self):
         importations = Importation.query.all()
-        serialized_importations = [{
+        importations_data = []
+        for importation in importations:
+            importations_data.append({
                 'id': importation.id,
                 'country_of_origin': importation.country_of_origin,
                 'transport_fee': importation.transport_fee,
                 'currency': importation.currency,
                 'import_duty': importation.import_duty,
                 'import_date': importation.import_date,
-                'import_document': importation.import_document,
-                'car_id': importation.car_id,
-            }
-            for importation in importations]
-        return make_response(jsonify(serialized_importations), 200)
-    
-    @jwt_required()
+                'car_id': importation.car_id
+            })
+        return make_response(jsonify(importations_data), 200)
+
+    # @jwt_required()
     def post(self):
         data = request.json
         new_importation = Importation(
@@ -424,6 +424,7 @@ class Importations(Resource):
         db.session.add(new_importation)
         db.session.commit()
         return make_response(jsonify({'message': 'Importation created successfully'}), 201)
+
 
 
 api.add_resource(AllUsers, '/users')
