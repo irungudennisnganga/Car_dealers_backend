@@ -4,7 +4,15 @@ from flask_restful import Resource
 from flask import request, jsonify, make_response
 from flask_bcrypt import check_password_hash
 from flask_jwt_extended import JWTManager, create_access_token, get_jwt_identity, jwt_required
+import cloudinary
+import cloudinary.uploader
+import cloudinary.api
 
+cloudinary.config(
+  cloud_name='df3sytxef',
+  api_key='985443855749731',
+  api_secret='lo3vNIHKIgq9R6CZOdcAcQAUKjA'
+)
 
 class CheckSession(Resource):
     @jwt_required() 
