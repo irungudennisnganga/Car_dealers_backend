@@ -10,7 +10,7 @@ class User(db.Model, SerializerMixin):
     id = db.Column(db.Integer, primary_key=True)
     first_name = db.Column(db.String, nullable=False)
     last_name = db.Column(db.String,nullable=False)
-    email = db.Column(db.String,nullable=False, unique=True )
+    email = db.Column(db.String,nullable=False )
     image = db.Column(db.String,nullable=False)
     role = db.Column(db.String,nullable=False)
     contact = db.Column(db.String, nullable=False, unique=True)
@@ -100,6 +100,7 @@ class Inventory(db.Model, SerializerMixin):
     sale = db.relationship("Sale", backref='inventories')
     invoice = db.relationship("Invoice", backref='inventories')
     report = db.relationship("Report", backref='inventories')
+    gallery = db.relationship('GalleryImage', backref='inventories')
 
     
     def serializer(self):
@@ -335,3 +336,15 @@ class Receipt(db.Model, SerializerMixin):
             'time_stamp':self.time_stamp
             
         }
+        
+class GalleryImage(db.Model,SerializerMixin):
+    __tablename__ = 'gallery_image'
+
+    id = db.Column(db.Integer, primary_key=True)
+    url = db.Column(db.String(255), nullable=False)
+    inventory_id = db.Column(db.Integer, db.ForeignKey("inventories.id"))
+    
+
+    def __init__(self, url, inventory_id):
+        self.url = url
+        self.inventory_id = inventory_id
