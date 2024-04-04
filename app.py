@@ -2,17 +2,17 @@ from models import User, Inventory, Importation
 from config import app, api, db, bcrypt
 from flask_restful import Resource
 from flask import request, jsonify, make_response
-from flask_bcrypt import check_password_hash
+from flask_bcrypt import check_password_hash,generate_password_hash
 from flask_jwt_extended import JWTManager, create_access_token, get_jwt_identity, jwt_required
-import cloudinary
-import cloudinary.uploader
-import cloudinary.api
+# import cloudinary
+# import cloudinary.uploader
+# import cloudinary.api
 
-cloudinary.config(
-  cloud_name='df3sytxef',
-  api_key='985443855749731',
-  api_secret='lo3vNIHKIgq9R6CZOdcAcQAUKjA'
-)
+# cloudinary.config(
+#   cloud_name='df3sytxef',
+#   api_key='985443855749731',
+#   api_secret='lo3vNIHKIgq9R6CZOdcAcQAUKjA'
+# )
 
 class CheckSession(Resource):
     @jwt_required() 
@@ -73,7 +73,7 @@ class SignupUser(Resource):
             contact = data.get('contact')
             email = data.get('email')
             role = 'seller'
-            password = data.get('password')
+            password = "8Dn@3pQo"
 
             if not all([first_name, last_name, image, email, contact, role, password]):
                 return make_response(jsonify({'errors': ['Missing required data']}), 400)
@@ -104,7 +104,7 @@ class SignupUser(Resource):
             contact = data.get('contact')
             email = data.get('email')
             role = data.get('role')
-            password = data.get('password')
+            password = '8Dn@3pQo'
 
             if not all([first_name, last_name, image, email, contact, role, password]):
                 return make_response(jsonify({'errors': ['Missing required data']}), 400)
@@ -126,6 +126,36 @@ class SignupUser(Resource):
             db.session.commit()
 
             return make_response(jsonify({'message': 'Sign up successful'}), 200)
+        
+        
+class UpdatePassword(Resource):
+    def post(self):
+        data = request.get_json()
+
+        user_email = data.get('email')
+        former_password = data.get('former_password')
+        new_password = data.get('new_password')
+
+        if not user_email or not former_password or not new_password:
+            return make_response(jsonify({'message': 'Email, former password, and new password are required.'}), 400)
+
+        user = User.query.filter_by(email=user_email).first()
+
+        if user is None:
+            return make_response(jsonify({'message': 'User not found'}), 404)
+
+        # Assuming you are using a password hashing library like bcrypt
+        # Check if the former password matches
+        if not check_password_hash(user.password_hash, former_password):
+            return make_response(jsonify({'message': 'Incorrect former password'}), 401)
+
+        # Update the password hash with the new one
+        user.password_hash = generate_password_hash(new_password).decode('utf-8')
+
+        db.session.commit()
+        return make_response(jsonify({'message': 'Password updated successfully'}), 200)
+    
+    
 # in this class we are getting all the users and serializering each user using list comprehension
 class AllUsers(Resource):
     @jwt_required()
@@ -280,8 +310,6 @@ class OneUser(Resource):
             # Return a success response
             return make_response(jsonify({'message': 'User updated successfully'}), 200)
         
-# inventory
-
 
 class INVENTORY(Resource):
     # POST
@@ -356,9 +384,7 @@ class INVENTORY(Resource):
                 
             }for item in items]))
 
-        # PATCH
-
-
+        
 class inventory_update(Resource):
     @jwt_required()
     
@@ -382,7 +408,7 @@ class inventory_update(Resource):
             return {'message': "User has no access rights to update Inventory"}, 422
             
 
-        # DELETE
+
     @jwt_required()
     def delete(self, id):
         user_id = get_jwt_identity()
@@ -471,6 +497,7 @@ api.add_resource(SignupUser, '/signup')
 api.add_resource(inventory_update, "/inventory/<int:id>")
 api.add_resource(INVENTORY, '/inventory')
 api.add_resource(Importations, '/importations')
+api.add_resource(UpdatePassword, '/change_password')
 api.add_resource(AddImportation, '/importations/add')
 api.add_resource(UpdateImportation, '/importations/update/<int:importation_id>')
 api.add_resource(DeleteImportation, '/importations/delete/<int:importation_id>')
