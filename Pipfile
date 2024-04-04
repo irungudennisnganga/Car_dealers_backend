@@ -19,6 +19,7 @@ flask-jwt-extended = "*"
 faker = "*"
 marshmallow = "*"
 flask-marshmallow = "*"
+cloudinary = "*"
 
 [dev-packages]
 
