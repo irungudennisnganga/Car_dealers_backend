@@ -13,7 +13,7 @@ class User(db.Model, SerializerMixin):
     email = db.Column(db.String,nullable=False )
     image = db.Column(db.String,nullable=False)
     role = db.Column(db.String,nullable=False)
-    contact = db.Column(db.String, nullable=False, unique=True)
+    contact = db.Column(db.String, nullable=False)
     _password_hash = db.Column(db.String,nullable=False)
     created_at = db.Column(db.DateTime, server_default=db.func.now())
     updated_at = db.Column(db.DateTime, onupdate=db.func.now())
@@ -25,16 +25,7 @@ class User(db.Model, SerializerMixin):
     notifications = db.relationship("Notification", backref='user')
     receipt = db.relationship("Receipt", backref='user')
     
-    def serializer(self):
-        return{
-            'id':self.id,
-            'first_name':self.first_name,
-            'last_name':self.last_name,
-            'email':self.email,
-            'image':self.image,
-            'role':self.role,
-            'contact':self.contact
-        }
+    
         # validates email format
     @validates('email')
     def validate_email(self, key, value):

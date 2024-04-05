@@ -1,4 +1,4 @@
-from models import User, Inventory, Importation, Customer,GalleryImage
+from models import User, Inventory, Importation, Customer,GalleryImage,Sale
 from config import app, api, db, bcrypt
 from flask_restful import Resource
 from flask import request, jsonify, make_response
@@ -80,7 +80,7 @@ class SignupUser(Resource):
         # if not all([first_name, last_name, image_file, email, contact, role]):
         #     return make_response(jsonify({'errors': ['Missing required data']}), 400)
 
-        if User.query.filter_by(email=email).first():
+        if User.query.filter_by(email=email).first() or User.query.filter_by(contact=contact).first() :
             return make_response(jsonify({'message': 'User already exists'}), 400)
 
         if image_file.filename == '':
@@ -177,30 +177,6 @@ class AllUsers(Resource):
 
 # in this function we are getting a specific user by their id
 
-
-class UserAccount(Resource):
-    @jwt_required()
-    def get(self):
-        user_id = get_jwt_identity()
-
-        user = User.query.filter_by(id=user_id).first()
-
-        user_data = {
-            'id': user.id,
-            'first_name': user.first_name,
-            'last_name': user.last_name,
-            'image': user.image,
-            'email': user.email,
-            'role': user.role,
-            'contact': user.contact,
-        }
-
-        return make_response(
-            jsonify(user_data),
-            200
-        )
-
-
 class OneUser(Resource):
     @jwt_required()
     def get(self, id):
@@ -210,16 +186,18 @@ class OneUser(Resource):
 
         if check_user_role.role == "admin":
             # here one is quering all the users available filtering them by their id's, after getting the first user, we serialize the user
-            # using the serializer() function found in the models
-            user = User.query.filter_by(id=id, role='seller').first()
+            
+            user = User.query.filter_by(id=id, role='seller').first()   
 
-        if check_user_role.role == "super admin":
+        elif check_user_role.role == "super admin":
 
             user = User.query.filter_by(id=id).first()
+        else :
+             return make_response (jsonify({"message": "Un Authorized User"}), 401)
         # if no user is found the method will stop there and return "No users found"
         if not user:
             return {"message": "No user found"}
-
+        sales = Sale.query.filter_by(seller_id=user.id).all()
         user_data = {
             'id': user.id,
             'first_name': user.first_name,
@@ -228,6 +206,57 @@ class OneUser(Resource):
             'email': user.email,
             'role': user.role,
             'contact': user.contact,
+            "sales":[{
+                  "id":sale.id,
+                  "commision":sale.commision,
+                  "status":sale.status,
+                  "history":sale.history,
+                  "discount":sale.discount,
+                  "sale_date":sale.sale_date,
+                  "customer":[
+                      {
+                          "id":customer.id,
+                          "first_name":customer.first_name,
+                          "last_name":customer.last_name,
+                          "email":customer.email,
+                          "address":customer.address,
+                          "phone_number":customer.phone_number,
+                          "image":customer.image
+                      } for customer in Customer.query.filter_by(id =sale.customer_id)
+                      ],
+                  "inventory":[
+                      {
+                          "id":inventory.id,
+                          'make':inventory.make,
+                            'price':inventory.price,
+                            'currency':inventory.currency,
+                            'image':inventory.image,
+                            'model':inventory.model,
+                            'year':inventory.year,
+                            'VIN':inventory.VIN,
+                            'color':inventory.color,
+                            'mileage':inventory.mileage,
+                            'body_style':inventory.body_style,
+                            'transmission':inventory.transmission,
+                            'fuel_type':inventory.fuel_type,
+                            'engine_size':inventory.engine_size,
+                            'drive_type':inventory.drive_type,
+                            'trim_level':inventory.trim_level,
+                            'gallery':inventory.gallery,
+                            'condition':inventory.condition,
+                            'availability':inventory.availability,
+                            'cylinder':inventory.cylinder,
+                            'doors':inventory.doors,
+                            'features':inventory.features,
+                            'stock_number':inventory.stock_number,
+                            'purchase_cost':inventory.purchase_cost,
+                            'profit':inventory.profit,
+                            # 'user_id':inventory.user_id
+                      } for inventory in Inventory.query.filter_by(id =sale.inventory_id).all()
+                      ],
+                  "promotions":sale.promotions
+                  
+            } for sale in sales] 
         }
 
         #  after getting a user we jsonify the data received
@@ -248,13 +277,23 @@ class OneUser(Resource):
         data = request.form
 
         # Querying the user by their id
-        user = User.query.filter_by(id=id).first()
+        if check_user_role.role == 'super admin':
+            user = User.query.filter_by(id=id).first()
+        
+        elif check_user_role.role == 'admin':
+            user = User.query.filter_by(id=id, role='seller').first()
+        
+        elif check_user_role.role == 'seller':
+            user = User.query.filter_by(id=id, role='seller').first()
+        else:
+            return make_response(jsonify({"message": "Unauthorized User"}), 401)
+            
 
         # If no user is found, return an error response
         if not user:
-            return make_response(jsonify({"message": "No user to update"}), 404)
+            return make_response(jsonify({"message": "No user to update"}), 401)
 
-        if check_user_role.role in ["admin", "super_admin"]:
+        if check_user_role.role == "super admin":
             # Update user attributes if they are provided in the JSON data
             if 'first_name' in data:
                 user.first_name = data.get('first_name')
@@ -284,6 +323,46 @@ class OneUser(Resource):
                 user.contact = data.get('contact')
             if 'role' in data:
                 user.role = data.get('role')
+
+            # Commit the changes to the database
+            db.session.commit()
+
+            # Return a success response
+            return make_response(jsonify({'message': 'User updated successfully'}), 200)
+        
+        if check_user_role.role == "admin" or check_user_role.role == "seller":
+            # Update user attributes if they are provided in the JSON data
+            if 'first_name' in data:
+                user.first_name = data.get('first_name')
+            if 'last_name' in data:
+                user.last_name = data.get('last_name')
+            if 'image' in data:
+                image = request.files.get('image')
+                if image.filename == '':
+                    return {'error': 'No image selected for upload'}, 400
+
+                def allowed_file(filename):
+                    return '.' in filename and filename.rsplit('.', 1)[1].lower() in {'png', 'jpg', 'jpeg', 'gif'}
+
+                if not allowed_file(image.filename):
+                    return {'error': 'Invalid file type. Only images are allowed'}, 400
+
+                # Upload image to Cloudinary
+                try:
+                    image_upload_result = cloudinary.uploader.upload(image)
+                    user.image = image_upload_result['secure_url']
+                except Exception as e:
+                    return {'error': f'Error uploading image: {str(e)}'}, 500
+
+            if 'email' in data:
+                user.email = data.get('email')
+            if check_user_role.role == "admin":
+                if 'role' in data:
+                    user.role = data.get('role')
+            
+            if 'contact' in data:
+                user.contact = data.get('contact')
+            
 
             # Commit the changes to the database
             db.session.commit()
@@ -457,55 +536,79 @@ class inventory_update(Resource):
 class Importations(Resource):
     @jwt_required()
     def get(self):
-        importations = Importation.query.all()
-        importations_data = []
-        for importation in importations:
-            importations_data.append({
-                'id': importation.id,
-                'country_of_origin': importation.country_of_origin,
-                'transport_fee': importation.transport_fee,
-                'currency': importation.currency,
-                'import_duty': importation.import_duty,
-                'import_date': importation.import_date,
-                'import_document': importation.import_document,
-                'car_id': importation.car_id
-            })
-        return make_response(jsonify(importations_data), 200)
+        user_id = get_jwt_identity()
 
+        check_user_role = User.query.filter_by(id=user_id).first()
+        
+        if check_user_role.role == 'super admin' or check_user_role.role == 'admin' or check_user_role.role == 'seller':
+            importations = Importation.query.all()
+            importations_data = []
+            for importation in importations:
+                importations_data.append({
+                    'id': importation.id,
+                    'country_of_origin': importation.country_of_origin,
+                    'transport_fee': importation.transport_fee,
+                    'currency': importation.currency,
+                    'import_duty': importation.import_duty,
+                    'import_date': importation.import_date,
+                    'import_document': importation.import_document,
+                    'car': [
+                        {
+                          "id":car.id,
+                          "make":car.make,
+                          "model":car.model,
+                          "image":car.image ,
+                          "year":car.year,
+                          "currency":car.currency,
+                          "purchase_cost":car.purchase_cost 
+                        } for car in Inventory.query.filter_by(id=importation.car_id).all()
+                        
+                    ]
+                })
+            return make_response(jsonify(importations_data), 200)
+        else:
+            return make_response(jsonify({"message": "Unauthorized User"}), 401)
+        
     @jwt_required()
     def post(self):
-        data = request.form
-        import_document=request.files.get('import_document')
-        
-        if import_document.filename == '':
-            return {'error': 'No image selected for upload'}, 400
-        
-        
-        def allowed_file(filename):
-            return '.' in filename and filename.rsplit('.', 1)[1].lower() in {'png', 'jpg', 'jpeg', 'gif', 'pdf', 'doc', 'docx', 'txt'}
+        user_id = get_jwt_identity()
+
+        check_user_role = User.query.filter_by(id=user_id).first()
+        if check_user_role.role == 'super admin' or check_user_role.role == 'admin':
+            data = request.form
+            import_document=request.files.get('import_document')
+            
+            if import_document.filename == '':
+                return {'error': 'No image selected for upload'}, 400
+            
+            
+            def allowed_file(filename):
+                return '.' in filename and filename.rsplit('.', 1)[1].lower() in {'png', 'jpg', 'jpeg', 'gif', 'pdf', 'doc', 'docx', 'txt'}
 
 
-        if not allowed_file(import_document.filename):
-            return {'error': 'Invalid file type. Only images are allowed'}, 400
+            if not allowed_file(import_document.filename):
+                return {'error': 'Invalid file type. Only images are allowed'}, 400
 
-        # Upload image to Cloudinary
-        try:
-            image_upload_result = cloudinary.uploader.upload(import_document)
-        except Exception as e:
-            return {'error': f'Error uploading image: {str(e)}'}, 500
-        
-        new_importation = Importation(
-            country_of_origin=data['country_of_origin'],
-            transport_fee=data['transport_fee'],
-            currency=data['currency'],
-            import_duty=data['import_duty'],
-            import_date=data['import_date'],
-            import_document=image_upload_result['secure_url'],
-            car_id=data['car_id']
-        )
-        db.session.add(new_importation)
-        db.session.commit()
-        return make_response(jsonify({'message': 'Importation created successfully'}), 201)
+            # Upload image to Cloudinary
+            try:
+                image_upload_result = cloudinary.uploader.upload(import_document)
+            except Exception as e:
+                return {'error': f'Error uploading image: {str(e)}'}, 500
+            
+            new_importation = Importation(
+                country_of_origin=data['country_of_origin'],
+                transport_fee=data['transport_fee'],
+                currency=data['currency'],
+                import_duty=data['import_duty'],
+                import_date=data['import_date'],
+                import_document=image_upload_result['secure_url'],
+                car_id=data['car_id']
+            )
+            db.session.add(new_importation)
+            db.session.commit()
+            return make_response(jsonify({'message': 'Importation created successfully'}), 201)
+        else:
+            return make_response(jsonify({"message": "Unauthorized User"}), 404)
 
 
     
@@ -514,52 +617,64 @@ class Importations(Resource):
 class UpdateImportation(Resource):
     @jwt_required()
     def put(self, importation_id):
-        data = request.form
-        importation = Importation.query.get(importation_id)
-        doc =request.files.get(
-            'import_document', importation.import_document)
-        
-        if doc.filename == '':
-            return {'error': 'No image selected for upload'}, 400
-        
-        
-        def allowed_file(filename):
-            return '.' in filename and filename.rsplit('.', 1)[1].lower() in {'png', 'jpg', 'jpeg', 'gif', 'pdf', 'doc', 'docx', 'txt'}
+        user_id = get_jwt_identity()
+
+        check_user_role = User.query.filter_by(id=user_id).first()
+        if check_user_role.role == 'super admin' or check_user_role.role == 'admin':
+            data = request.form
+            importation = Importation.query.get(importation_id)
+            doc =request.files.get(
+                'import_document', importation.import_document)
+            
+            if doc.filename == '':
+                return {'error': 'No image selected for upload'}, 400
+            
+            
+            def allowed_file(filename):
+                return '.' in filename and filename.rsplit('.', 1)[1].lower() in {'png', 'jpg', 'jpeg', 'gif', 'pdf', 'doc', 'docx', 'txt'}
 
 
-        if not allowed_file(doc.filename):
-            return {'error': 'Invalid file type. Only images are allowed'}, 400
+            if not allowed_file(doc.filename):
+                return {'error': 'Invalid file type. Only images are allowed'}, 400
 
-        # Upload image to Cloudinary
-        try:
-            image_upload_result = cloudinary.uploader.upload(doc)
-            importation.import_document = image_upload_result['secure_url']
-        except Exception as e:
-            return {'error': f'Error uploading document: {str(e)}'}, 500
-        if not importation:
-            return make_response(jsonify({'message': 'Importation not found'}), 404)
-        importation.country_of_origin = data.get(
-            'country_of_origin', importation.country_of_origin)
-        importation.transport_fee = data.get(
-            'transport_fee', importation.transport_fee)
-        importation.currency = data.get('currency', importation.currency)
-        importation.import_duty = data.get(
-            'import_duty', importation.import_duty)
-        importation.import_date = data.get(
-            'import_date', importation.import_date)
-        # importation.import_document = image_upload_result 
-        importation.car_id = data.get('car_id', importation.car_id)
-        db.session.commit()
-        return make_response(jsonify({'message': 'Importation updated successfully'}), 200)
-    
+            # Upload image to Cloudinary
+            try:
+                image_upload_result = cloudinary.uploader.upload(doc)
+                importation.import_document = image_upload_result['secure_url']
+            except Exception as e:
+                return {'error': f'Error uploading document: {str(e)}'}, 500
+            if not importation:
+                return make_response(jsonify({'message': 'Importation not found'}), 404)
+            importation.country_of_origin = data.get(
+                'country_of_origin', importation.country_of_origin)
+            importation.transport_fee = data.get(
+                'transport_fee', importation.transport_fee)
+            importation.currency = data.get('currency', importation.currency)
+            importation.import_duty = data.get(
+                'import_duty', importation.import_duty)
+            importation.import_date = data.get(
+                'import_date', importation.import_date)
+            # importation.import_document = image_upload_result 
+            importation.car_id = data.get('car_id', importation.car_id)
+            db.session.commit()
+            return make_response(jsonify({'message': 'Importation updated successfully'}), 200)
+        else:
+            return make_response(jsonify({"message": "Unauthorized User"}), 404)
+        
     @jwt_required()
     def delete(self, importation_id):
-        importation = Importation.query.get(importation_id)
-        if not importation:
-            return make_response(jsonify({'message': 'Importation not found'}), 404)
-        db.session.delete(importation)
-        db.session.commit()
-        return make_response(jsonify({'message': 'Importation deleted successfully'}), 200)
+        user_id = get_jwt_identity()
+
+        check_user_role = User.query.filter_by(id=user_id).first()
+        if check_user_role.role == 'super admin' or check_user_role.role == 'admin':
+            importation = Importation.query.get(importation_id)
+            if not importation:
+                return make_response(jsonify({'message': 'Importation not found'}), 404)
+            db.session.delete(importation)
+            db.session.commit()
+            return make_response(jsonify({'message': 'Importation deleted successfully'}), 200)
+        else:
+            return make_response(jsonify({"message": "Unauthorized User"}), 404)
 
 
     
@@ -582,77 +697,76 @@ class CustomerDetails(Resource):
                              200)
     @jwt_required()  # Require JWT authentication
     def post(self):
-        user_id =get_jwt_identity()
+    
+        user_id = get_jwt_identity()
 
-        # Get form data
-        data = request.form
-        first_name = data.get('first_name')
-        last_name = data.get('last_name')
-        email = data.get('email')
-        address = data.get('address')
-        phone_number = data.get('phone_number')
-        image_file = request.files.get('image')
+        check_user_role = User.query.filter_by(id=user_id).first()
+        if check_user_role.role == 'seller' or check_user_role.role == 'admin':
+            data = request.form
+            first_name = data.get('first_name')
+            last_name = data.get('last_name')
+            email = data.get('email')
+            address = data.get('address')
+            phone_number = data.get('phone_number')
+            image_file = request.files.get('image')
 
-        if not all([first_name, last_name, email, address, phone_number, image_file]):
-            return {'error': '422 Unprocessable Entity', 'message': 'Missing customer details'}, 422
+            if not all([first_name, last_name, email, address, phone_number, image_file]):
+                return {'error': '422 Unprocessable Entity', 'message': 'Missing customer details'}, 422
 
-        # Get the current user's ID from the JWT token
-        current_user_id = get_jwt_identity()
+            # Get the current user's ID from the JWT token
+            current_user_id = get_jwt_identity()
 
-        # Retrieve the user object from the database
-        user = User.query.filter_by(id=current_user_id).first()
+            # Retrieve the user object from the database
+            user = User.query.filter_by(id=current_user_id).first()
 
-        # Check if the user exists and has the role "seller"
-        if not user or user.role != "seller":
-            return {'error': '403 Forbidden', 'message': 'User is not authorized to add customer details'}, 403
+            # Check if the user exists and has the role "seller"
+            if not user or user.role != "seller":
+                return {'error': '403 Forbidden', 'message': 'User is not authorized to add customer details'}, 403
 
-        # Check if file uploaded and is an image
-        if image_file.filename == '':
-            return {'error': 'No image selected for upload'}, 400
+            # Check if file uploaded and is an image
+            if image_file.filename == '':
+                return {'error': 'No image selected for upload'}, 400
 
-        def allowed_file(filename):
-            return '.' in filename and filename.rsplit('.', 1)[1].lower() in {'png', 'jpg', 'jpeg', 'gif'}
+            def allowed_file(filename):
+                return '.' in filename and filename.rsplit('.', 1)[1].lower() in {'png', 'jpg', 'jpeg', 'gif'}
 
-        if not allowed_file(image_file.filename):
-            return {'error': 'Invalid file type. Only images are allowed'}, 400
+            if not allowed_file(image_file.filename):
+                return {'error': 'Invalid file type. Only images are allowed'}, 400
 
-        # Upload image to Cloudinary
-        try:
-            image_upload_result = cloudinary.uploader.upload(image_file)
-        except Exception as e:
-            return {'error': f'Error uploading image: {str(e)}'}, 500
+            # Upload image to Cloudinary
+            try:
+                image_upload_result = cloudinary.uploader.upload(image_file)
+            except Exception as e:
+                return {'error': f'Error uploading image: {str(e)}'}, 500
 
-        # Create a new customer object
-        new_customer = Customer(
-            first_name=first_name,
-            last_name=last_name,
-            email=email,
-            address=address,
-            phone_number=phone_number,
-            image=image_upload_result['secure_url'],  # Store Cloudinary URL
-            # seller_id=user_id  # Assign the current user ID as the seller ID
-        )
+            # Create a new customer object
+            new_customer = Customer(
+                first_name=first_name,
+                last_name=last_name,
+                email=email,
+                address=address,
+                phone_number=phone_number,
+                image=image_upload_result['secure_url'],  # Store Cloudinary URL
+                # seller_id=user_id  # Assign the current user ID as the seller ID
+            )
 
-        db.session.add(new_customer)
-        db.session.commit()
+            db.session.add(new_customer)
+            db.session.commit()
 
-        return {'message': 'Customer details added successfully'}, 201
+            return {'message': 'Customer details added successfully'}, 201
 
 
 
 
 api.add_resource(AllUsers, '/users')
 api.add_resource(OneUser, '/user/<int:id>')
-api.add_resource(UserAccount, '/me')
 api.add_resource(Login, '/login')
 api.add_resource(SignupUser, '/signup')
 api.add_resource(inventory_update, "/inventory/<int:id>")
 api.add_resource(INVENTORY, '/inventory')
 api.add_resource(Importations, '/importations')
 api.add_resource(UpdatePassword, '/change_password')
-# api.add_resource(AddImportation, '/importations/add')
-api.add_resource(UpdateImportation,
-                 '/importations/<int:importation_id>')
+api.add_resource(UpdateImportation,'/importations/<int:importation_id>')
 api.add_resource(CustomerDetails, '/customerdetails')
 
 
