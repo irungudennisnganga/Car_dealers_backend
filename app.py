@@ -1,4 +1,4 @@
-from models import User, Inventory, Importation, Customer,GalleryImage,Sale
+from models import User, Inventory, Importation, Customer, GalleryImage, Sale
 from config import app, api, db, bcrypt
 from flask_restful import Resource
 from flask import request, jsonify, make_response
@@ -7,6 +7,8 @@ from flask_jwt_extended import JWTManager, create_access_token, get_jwt_identity
 import cloudinary
 import cloudinary.uploader
 import cloudinary.api
+from datetime import datetime
+
 
 cloudinary.config(
     cloud_name='df3sytxef',
@@ -74,13 +76,14 @@ class SignupUser(Resource):
         image_file = request.files.get('image')
         contact = data.get('contact')
         email = data.get('email')
-        role = data.get('role') if check_user_role.role == 'super admin' else 'seller'
+        role = data.get(
+            'role') if check_user_role.role == 'super admin' else 'seller'
         password = '8Dn@3pQo'
 
         # if not all([first_name, last_name, image_file, email, contact, role]):
         #     return make_response(jsonify({'errors': ['Missing required data']}), 400)
 
-        if User.query.filter_by(email=email).first() or User.query.filter_by(contact=contact).first() :
+        if User.query.filter_by(email=email).first() or User.query.filter_by(contact=contact).first():
             return make_response(jsonify({'message': 'User already exists'}), 400)
 
         if image_file.filename == '':
@@ -105,12 +108,14 @@ class SignupUser(Resource):
             email=email,
             contact=contact,
             role=role,
-            _password_hash=bcrypt.generate_password_hash(password).decode('utf-8')
+            _password_hash=bcrypt.generate_password_hash(
+                password).decode('utf-8')
         )
         db.session.add(new_user)
         db.session.commit()
 
         return make_response(jsonify({'message': 'Sign up successful'}), 200)
+
 
 class UpdatePassword(Resource):
     def post(self):
@@ -177,6 +182,7 @@ class AllUsers(Resource):
 
 # in this function we are getting a specific user by their id
 
+
 class OneUser(Resource):
     @jwt_required()
     def get(self, id):
@@ -186,14 +192,14 @@ class OneUser(Resource):
 
         if check_user_role.role == "admin":
             # here one is quering all the users available filtering them by their id's, after getting the first user, we serialize the user
-            
-            user = User.query.filter_by(id=id, role='seller').first()   
+
+            user = User.query.filter_by(id=id, role='seller').first()
 
         elif check_user_role.role == "super admin":
 
             user = User.query.filter_by(id=id).first()
-        else :
-             return make_response (jsonify({"message": "Un Authorized User"}), 401)
+        else:
+            return make_response(jsonify({"message": "Un Authorized User"}), 401)
         # if no user is found the method will stop there and return "No users found"
         if not user:
             return {"message": "No user found"}
@@ -206,57 +212,57 @@ class OneUser(Resource):
             'email': user.email,
             'role': user.role,
             'contact': user.contact,
-            "sales":[{
-                  "id":sale.id,
-                  "commision":sale.commision,
-                  "status":sale.status,
-                  "history":sale.history,
-                  "discount":sale.discount,
-                  "sale_date":sale.sale_date,
-                  "customer":[
+            "sales": [{
+                "id": sale.id,
+                "commision": sale.commision,
+                "status": sale.status,
+                "history": sale.history,
+                "discount": sale.discount,
+                "sale_date": sale.sale_date,
+                "customer": [
                       {
-                          "id":customer.id,
-                          "first_name":customer.first_name,
-                          "last_name":customer.last_name,
-                          "email":customer.email,
-                          "address":customer.address,
-                          "phone_number":customer.phone_number,
-                          "image":customer.image
-                      } for customer in Customer.query.filter_by(id =sale.customer_id)
+                          "id": customer.id,
+                          "first_name": customer.first_name,
+                          "last_name": customer.last_name,
+                          "email": customer.email,
+                          "address": customer.address,
+                          "phone_number": customer.phone_number,
+                          "image": customer.image
+                      } for customer in Customer.query.filter_by(id=sale.customer_id)
                       ],
-                  "inventory":[
-                      {
-                          "id":inventory.id,
-                          'make':inventory.make,
-                            'price':inventory.price,
-                            'currency':inventory.currency,
-                            'image':inventory.image,
-                            'model':inventory.model,
-                            'year':inventory.year,
-                            'VIN':inventory.VIN,
-                            'color':inventory.color,
-                            'mileage':inventory.mileage,
-                            'body_style':inventory.body_style,
-                            'transmission':inventory.transmission,
-                            'fuel_type':inventory.fuel_type,
-                            'engine_size':inventory.engine_size,
-                            'drive_type':inventory.drive_type,
-                            'trim_level':inventory.trim_level,
-                            'gallery':inventory.gallery,
-                            'condition':inventory.condition,
-                            'availability':inventory.availability,
-                            'cylinder':inventory.cylinder,
-                            'doors':inventory.doors,
-                            'features':inventory.features,
-                            'stock_number':inventory.stock_number,
-                            'purchase_cost':inventory.purchase_cost,
-                            'profit':inventory.profit,
-                            # 'user_id':inventory.user_id
-                      } for inventory in Inventory.query.filter_by(id =sale.inventory_id).all()
-                      ],
-                  "promotions":sale.promotions
-                  
-            } for sale in sales] 
+                "inventory": [
+                    {
+                        "id": inventory.id,
+                        'make': inventory.make,
+                        'price': inventory.price,
+                        'currency': inventory.currency,
+                        'image': inventory.image,
+                        'model': inventory.model,
+                        'year': inventory.year,
+                        'VIN': inventory.VIN,
+                        'color': inventory.color,
+                        'mileage': inventory.mileage,
+                        'body_style': inventory.body_style,
+                        'transmission': inventory.transmission,
+                        'fuel_type': inventory.fuel_type,
+                        'engine_size': inventory.engine_size,
+                        'drive_type': inventory.drive_type,
+                        'trim_level': inventory.trim_level,
+                        'gallery': inventory.gallery,
+                        'condition': inventory.condition,
+                        'availability': inventory.availability,
+                        'cylinder': inventory.cylinder,
+                        'doors': inventory.doors,
+                        'features': inventory.features,
+                        'stock_number': inventory.stock_number,
+                        'purchase_cost': inventory.purchase_cost,
+                        'profit': inventory.profit,
+                        # 'user_id':inventory.user_id
+                    } for inventory in Inventory.query.filter_by(id=sale.inventory_id).all()
+                ],
+                "promotions": sale.promotions
+
+            } for sale in sales]
         }
 
         #  after getting a user we jsonify the data received
@@ -279,15 +285,14 @@ class OneUser(Resource):
         # Querying the user by their id
         if check_user_role.role == 'super admin':
             user = User.query.filter_by(id=id).first()
-        
+
         elif check_user_role.role == 'admin':
             user = User.query.filter_by(id=id, role='seller').first()
-        
+
         elif check_user_role.role == 'seller':
             user = User.query.filter_by(id=id, role='seller').first()
         else:
             return make_response(jsonify({"message": "Unauthorized User"}), 401)
-            
 
         # If no user is found, return an error response
         if not user:
@@ -329,7 +334,7 @@ class OneUser(Resource):
 
             # Return a success response
             return make_response(jsonify({'message': 'User updated successfully'}), 200)
-        
+
         if check_user_role.role == "admin" or check_user_role.role == "seller":
             # Update user attributes if they are provided in the JSON data
             if 'first_name' in data:
@@ -359,10 +364,9 @@ class OneUser(Resource):
             if check_user_role.role == "admin":
                 if 'role' in data:
                     user.role = data.get('role')
-            
+
             if 'contact' in data:
                 user.contact = data.get('contact')
-            
 
             # Commit the changes to the database
             db.session.commit()
@@ -371,6 +375,7 @@ class OneUser(Resource):
             return make_response(jsonify({'message': 'User updated successfully'}), 200)
         else:
             return make_response(jsonify({'message': 'Unauthorized'}), 401)
+
 
 class INVENTORY(Resource):
     # POST
@@ -381,8 +386,9 @@ class INVENTORY(Resource):
         check_user_role = User.query.filter_by(id=user_id).first()
         data = request.form
         image = request.files.get('image')
-        gallery = request.files.getlist('gallery')  # Changed to getlist to handle multiple files
-        
+        # Changed to getlist to handle multiple files
+        gallery = request.files.getlist('gallery')
+
         if image.filename == '' or len(gallery) == 0:
             return {'error': 'No image selected for upload'}, 400
 
@@ -395,7 +401,8 @@ class INVENTORY(Resource):
         # Upload images to Cloudinary
         try:
             image_upload_result = cloudinary.uploader.upload(image)
-            gallery_upload_results = [cloudinary.uploader.upload(g) for g in gallery]
+            gallery_upload_results = [
+                cloudinary.uploader.upload(g) for g in gallery]
         except Exception as e:
             return {'error': f'Error uploading image: {str(e)}'}, 500
 
@@ -430,19 +437,19 @@ class INVENTORY(Resource):
             # Add new inventory item to session
             db.session.add(new_inventory_item)
             db.session.commit()
-            
+
             db.session.refresh(new_inventory_item)  # Refresh to get the ID
             last_item = Inventory.query.order_by(Inventory.id.desc()).first()
             # print(last_item)
 
             # Add gallery images
             for result in gallery_upload_results:
-                gallery_image = GalleryImage(url=result['secure_url'], inventory_id=last_item.id)  # Use last_item.id
+                gallery_image = GalleryImage(
+                    url=result['secure_url'], inventory_id=last_item.id)  # Use last_item.id
                 db.session.add(gallery_image)
 
             db.session.commit()
-    
-            
+
             return make_response(jsonify({'message': 'Inventory created successfully'}), 201)
         else:
             return make_response(jsonify({'message': 'User has no access rights to create a Car'}), 401)
@@ -477,9 +484,9 @@ class INVENTORY(Resource):
             'stock_number': item.stock_number,
             'purchase_cost': item.purchase_cost,
             'profit': item.profit,
-            
+
         } for item in items]))
-        
+
 
 class inventory_update(Resource):
     @jwt_required()
@@ -494,11 +501,12 @@ class inventory_update(Resource):
         if check_user_role.role == 'admin' or check_user_role.role == 'super admin':
             data = request.form
             # Handle gallery images
-            gallery_images = request.files.getlist('gallery') 
+            gallery_images = request.files.getlist('gallery')
             for image in gallery_images:
                 try:
                     image_upload_result = cloudinary.uploader.upload(image)
-                    gallery_image = GalleryImage(url=image_upload_result['secure_url'], inventory_id=id)
+                    gallery_image = GalleryImage(
+                        url=image_upload_result['secure_url'], inventory_id=id)
                     db.session.add(gallery_image)
                 except Exception as e:
                     return {'error': f'Error uploading gallery image: {str(e)}'}, 500
@@ -518,11 +526,11 @@ class inventory_update(Resource):
 
         check_user_role = User.query.filter_by(id=user_id).first()
         if check_user_role.role == 'super admin' or check_user_role.role == 'admin':
-            gallery =GalleryImage.query.filter_by(inventory_id=id).all()
+            gallery = GalleryImage.query.filter_by(inventory_id=id).all()
             for image in gallery:
                 db.session.delete(image)
             inventory_item = Inventory.query.filter_by(id=id).first()
-            
+
             if inventory_item:
                 # db.session.delete(inventory_item)
                 db.session.commit()
@@ -539,7 +547,7 @@ class Importations(Resource):
         user_id = get_jwt_identity()
 
         check_user_role = User.query.filter_by(id=user_id).first()
-        
+
         if check_user_role.role == 'super admin' or check_user_role.role == 'admin' or check_user_role.role == 'seller':
             importations = Importation.query.all()
             importations_data = []
@@ -554,21 +562,21 @@ class Importations(Resource):
                     'import_document': importation.import_document,
                     'car': [
                         {
-                          "id":car.id,
-                          "make":car.make,
-                          "model":car.model,
-                          "image":car.image ,
-                          "year":car.year,
-                          "currency":car.currency,
-                          "purchase_cost":car.purchase_cost 
+                            "id": car.id,
+                            "make": car.make,
+                            "model": car.model,
+                            "image": car.image,
+                            "year": car.year,
+                            "currency": car.currency,
+                            "purchase_cost": car.purchase_cost
                         } for car in Inventory.query.filter_by(id=importation.car_id).all()
-                        
+
                     ]
                 })
             return make_response(jsonify(importations_data), 200)
         else:
             return make_response(jsonify({"message": "Unauthorized User"}), 401)
-        
+
     @jwt_required()
     def post(self):
         user_id = get_jwt_identity()
@@ -576,25 +584,24 @@ class Importations(Resource):
         check_user_role = User.query.filter_by(id=user_id).first()
         if check_user_role.role == 'super admin' or check_user_role.role == 'admin':
             data = request.form
-            import_document=request.files.get('import_document')
-            
+            import_document = request.files.get('import_document')
+
             if import_document.filename == '':
                 return {'error': 'No image selected for upload'}, 400
-            
-            
+
             def allowed_file(filename):
                 return '.' in filename and filename.rsplit('.', 1)[1].lower() in {'png', 'jpg', 'jpeg', 'gif', 'pdf', 'doc', 'docx', 'txt'}
-
 
             if not allowed_file(import_document.filename):
                 return {'error': 'Invalid file type. Only images are allowed'}, 400
 
             # Upload image to Cloudinary
             try:
-                image_upload_result = cloudinary.uploader.upload(import_document)
+                image_upload_result = cloudinary.uploader.upload(
+                    import_document)
             except Exception as e:
                 return {'error': f'Error uploading image: {str(e)}'}, 500
-            
+
             new_importation = Importation(
                 country_of_origin=data['country_of_origin'],
                 transport_fee=data['transport_fee'],
@@ -611,9 +618,6 @@ class Importations(Resource):
             return make_response(jsonify({"message": "Unauthorized User"}), 404)
 
 
-    
-
-
 class UpdateImportation(Resource):
     @jwt_required()
     def put(self, importation_id):
@@ -623,16 +627,14 @@ class UpdateImportation(Resource):
         if check_user_role.role == 'super admin' or check_user_role.role == 'admin':
             data = request.form
             importation = Importation.query.get(importation_id)
-            doc =request.files.get(
+            doc = request.files.get(
                 'import_document', importation.import_document)
-            
+
             if doc.filename == '':
                 return {'error': 'No image selected for upload'}, 400
-            
-            
+
             def allowed_file(filename):
                 return '.' in filename and filename.rsplit('.', 1)[1].lower() in {'png', 'jpg', 'jpeg', 'gif', 'pdf', 'doc', 'docx', 'txt'}
-
 
             if not allowed_file(doc.filename):
                 return {'error': 'Invalid file type. Only images are allowed'}, 400
@@ -654,13 +656,13 @@ class UpdateImportation(Resource):
                 'import_duty', importation.import_duty)
             importation.import_date = data.get(
                 'import_date', importation.import_date)
-            # importation.import_document = image_upload_result 
+            # importation.import_document = image_upload_result
             importation.car_id = data.get('car_id', importation.car_id)
             db.session.commit()
             return make_response(jsonify({'message': 'Importation updated successfully'}), 200)
         else:
             return make_response(jsonify({"message": "Unauthorized User"}), 404)
-        
+
     @jwt_required()
     def delete(self, importation_id):
         user_id = get_jwt_identity()
@@ -677,85 +679,84 @@ class UpdateImportation(Resource):
             return make_response(jsonify({"message": "Unauthorized User"}), 404)
 
 
-    
-
-
 class CustomerDetails(Resource):
-    @jwt_required()
+    # @jwt_required()
     def get(self):
         customers = [{
-            "first_name":customer.first_name,
-            'last_name':customer.last_name,
-            'email':customer.email,
-            'address':customer.address,
-            'phone_number':customer.phone_number,
-            'image_file':customer.image
-            
-            } for customer in Customer.query.all()]
-        
+            "first_name": customer.first_name,
+            'last_name': customer.last_name,
+            'email': customer.email,
+            'address': customer.address,
+            'phone_number': customer.phone_number,
+            'image_file': customer.image
+
+        } for customer in Customer.query.all()]
+
         return make_response(jsonify(customers),
                              200)
-    @jwt_required()  # Require JWT authentication
+
+    # @jwt_required()  # Require JWT authentication
     def post(self):
-    
-        user_id = get_jwt_identity()
 
-        check_user_role = User.query.filter_by(id=user_id).first()
-        if check_user_role.role == 'seller' or check_user_role.role == 'admin':
-            data = request.form
-            first_name = data.get('first_name')
-            last_name = data.get('last_name')
-            email = data.get('email')
-            address = data.get('address')
-            phone_number = data.get('phone_number')
-            image_file = request.files.get('image')
+        # user_id = get_jwt_identity()
 
-            if not all([first_name, last_name, email, address, phone_number, image_file]):
-                return {'error': '422 Unprocessable Entity', 'message': 'Missing customer details'}, 422
+        # check_user_role = User.query.filter_by(id=user_id).first()
+        # if check_user_role.role == 'seller' or check_user_role.role == 'admin':
+        data = request.form
+        first_name = data.get('first_name')
+        last_name = data.get('last_name')
+        email = data.get('email')
+        address = data.get('address')
+        phone_number = data.get('phone_number')
+        image_file = request.files.get('image')
 
-            # Get the current user's ID from the JWT token
-            current_user_id = get_jwt_identity()
+        if not all([first_name, last_name, email, address, phone_number, image_file]):
+            return {'error': '422 Unprocessable Entity', 'message': 'Missing customer details'}, 422
 
-            # Retrieve the user object from the database
-            user = User.query.filter_by(id=current_user_id).first()
+        # Get the current user's ID from the JWT token
+        # current_user_id = get_jwt_identity()
 
-            # Check if the user exists and has the role "seller"
-            if not user or user.role != "seller":
-                return {'error': '403 Forbidden', 'message': 'User is not authorized to add customer details'}, 403
+        # Retrieve the user object from the database
+        # user = User.query.filter_by(id=current_user_id).first()
 
-            # Check if file uploaded and is an image
-            if image_file.filename == '':
-                return {'error': 'No image selected for upload'}, 400
+        # Check if the user exists and has the role "seller"
+        # if not user or user.role != "seller":
+            return {'error': '403 Forbidden', 'message': 'User is not authorized to add customer details'}, 403
 
-            def allowed_file(filename):
-                return '.' in filename and filename.rsplit('.', 1)[1].lower() in {'png', 'jpg', 'jpeg', 'gif'}
+        # Check if file uploaded and is an image
+        if image_file.filename == '':
+            return {'error': 'No image selected for upload'}, 400
 
-            if not allowed_file(image_file.filename):
-                return {'error': 'Invalid file type. Only images are allowed'}, 400
+        def allowed_file(filename):
+            return '.' in filename and filename.rsplit('.', 1)[1].lower() in {'png', 'jpg', 'jpeg', 'gif'}
 
-            # Upload image to Cloudinary
-            try:
-                image_upload_result = cloudinary.uploader.upload(image_file)
-            except Exception as e:
-                return {'error': f'Error uploading image: {str(e)}'}, 500
+        if not allowed_file(image_file.filename):
+            return {'error': 'Invalid file type. Only images are allowed'}, 400
 
-            # Create a new customer object
-            new_customer = Customer(
-                first_name=first_name,
-                last_name=last_name,
-                email=email,
-                address=address,
-                phone_number=phone_number,
-                image=image_upload_result['secure_url'],  # Store Cloudinary URL
-                # seller_id=user_id  # Assign the current user ID as the seller ID
-            )
+        # Upload image to Cloudinary
+        try:
+            image_upload_result = cloudinary.uploader.upload(image_file)
+        except Exception as e:
+            return {'error': f'Error uploading image: {str(e)}'}, 500
 
-            db.session.add(new_customer)
-            db.session.commit()
+        # Create a new customer object
+        new_customer = Customer(
+            first_name=first_name,
+            last_name=last_name,
+            email=email,
+            address=address,
+            phone_number=phone_number,
+            # Store Cloudinary URL
+            image=image_upload_result['secure_url'],
+            created_at=datetime.now()
 
-            return {'message': 'Customer details added successfully'}, 201
+            # seller_id=user_id  # Assign the current user ID as the seller ID
+        )
 
+        db.session.add(new_customer)
+        db.session.commit()
 
+        return {'message': 'Customer details added successfully'}, 201
 
 
 api.add_resource(AllUsers, '/users')
@@ -766,7 +767,7 @@ api.add_resource(inventory_update, "/inventory/<int:id>")
 api.add_resource(INVENTORY, '/inventory')
 api.add_resource(Importations, '/importations')
 api.add_resource(UpdatePassword, '/change_password')
-api.add_resource(UpdateImportation,'/importations/<int:importation_id>')
+api.add_resource(UpdateImportation, '/importations/<int:importation_id>')
 api.add_resource(CustomerDetails, '/customerdetails')
 
 
