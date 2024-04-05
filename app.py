@@ -439,7 +439,7 @@ class inventory_update(Resource):
 
         check_user_role = User.query.filter_by(id=user_id).first()
         if check_user_role.role == 'super admin' or check_user_role.role == 'admin':
-            gallery =GalleryImage.query.all()
+            gallery =GalleryImage.query.filter_by(inventory_id=id).all()
             for image in gallery:
                 db.session.delete(image)
             inventory_item = Inventory.query.filter_by(id=id).first()
