@@ -80,8 +80,8 @@ class SignupUser(Resource):
             'role') if check_user_role.role == 'super admin' else 'seller'
         password = '8Dn@3pQo'
 
-        # if not all([first_name, last_name, image_file, email, contact, role]):
-        #     return make_response(jsonify({'errors': ['Missing required data']}), 400)
+        if not all([first_name, last_name, image_file, email, contact, role]):
+            return make_response(jsonify({'errors': ['Missing required data']}), 400)
 
         if User.query.filter_by(email=email).first() or User.query.filter_by(contact=contact).first():
             return make_response(jsonify({'message': 'User already exists'}), 400)
@@ -758,7 +758,113 @@ class CustomerDetails(Resource):
 
         return {'message': 'Customer details added successfully'}, 201
 
+class SaleResource(Resource):
+    # POST
+    @jwt_required()
+    def post(self):
+        user_id = get_jwt_identity()
 
+        check_user_role = User.query.filter_by(id=user_id).first()
+        if check_user_role.role == 'seller':
+            data = request.get_json()
+
+            commision =data.get('commision')
+            
+            status=data.get('status')
+            history=data.get('history')
+            discount=data.get('discount')
+            sale_date=data.get('sale_date')
+            customer_id=data.get('customer_id')
+            seller_id=user_id
+            inventory_id=data.get('inventory_id')
+            promotions=data.get('promotions')
+            
+            
+            sale = Sale(
+                commision=commision,
+                status=status,
+                history=history,
+                discount=discount,
+                sale_date=sale_date,
+                customer_id=customer_id,
+                seller_id=seller_id,
+                inventory_id=inventory_id,
+                promotions=promotions
+            )
+
+            db.session.add(sale)
+            db.session.commit()
+
+            return make_response(jsonify({'message': 'Sale created successfully'}), 201)
+        
+        else:
+            return make_response(jsonify({'message': 'Unauthorized User'}), 401)
+
+    # GET
+    @jwt_required()
+    def get(self):
+        user_id = get_jwt_identity()
+
+        check_user_role = User.query.filter_by(id=user_id).first()
+        if check_user_role.role == 'super admin' or check_user_role.role == 'admin':
+            serialized_sales = [{
+                    "commision":sale.commision,
+                    "status":sale.status,
+                    "history":sale.history,
+                    "discount":sale.discount,
+                    "sale_date":sale.sale_date,
+                    "customer_id":sale.customer_id,
+                    "seller_id":sale.seller_id,
+                    "inventory_id":sale.inventory_id,
+                    "promotions":sale.promotions,
+                } for sale in Sale.query.all()]
+            return jsonify(serialized_sales)
+
+class SaleItemResource(Resource):
+    # GET
+    def get(self, sale_id):
+        sale = Sale.query.get_or_404(sale_id)
+        one_sale ={
+                    "commision":sale.commision,
+                    "status":sale.status,
+                    "history":sale.history,
+                    "discount":sale.discount,
+                    "sale_date":sale.sale_date,
+                    "customer_id":sale.customer_id,
+                    "seller_id":sale.seller_id,
+                    "inventory_id":sale.inventory_id,
+                    "promotions":sale.promotions,
+                }
+        return make_response(jsonify(one_sale), 200)
+
+    # PUT
+    def put(self, sale_id):
+        sale = Sale.query.get_or_404(sale_id)
+        data = request.get_json()
+
+        sale.commision = data.get('commision', sale.commision)
+        sale.status = data.get('status', sale.status)
+        sale.history = data.get('history', sale.history)
+        sale.discount = data.get('discount', sale.discount)
+        sale.sale_date = data.get('sale_date', sale.sale_date)
+        sale.customer_id = data.get('customer_id', sale.customer_id)
+        sale.seller_id = data.get('seller_id', sale.seller_id)
+        sale.inventory_id = data.get('inventory_id', sale.inventory_id)
+        sale.promotions = data.get('promotions', sale.promotions)
+
+        db.session.commit()
+
+        return jsonify({'message': 'Sale updated successfully'})
+
+    # DELETE
+    def delete(self, sale_id):
+        sale = Sale.query.get_or_404(sale_id)
+        db.session.delete(sale)
+        db.session.commit()
+
+        return jsonify({'message': 'Sale deleted successfully'})
+    
+    
 api.add_resource(AllUsers, '/users')
 api.add_resource(OneUser, '/user/<int:id>')
 api.add_resource(Login, '/login')
@@ -769,7 +875,8 @@ api.add_resource(Importations, '/importations')
 api.add_resource(UpdatePassword, '/change_password')
 api.add_resource(UpdateImportation, '/importations/<int:importation_id>')
 api.add_resource(CustomerDetails, '/customerdetails')
-
+api.add_resource(SaleResource, '/sales')
+api.add_resource(SaleItemResource, '/sale/<int:sale_id>')
 
 if __name__ == "__main__":
     app.run(port=5555, debug=True)
