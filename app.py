@@ -864,7 +864,9 @@ class SaleItemResource(Resource):
 
         return jsonify({'message': 'Sale deleted successfully'})
     
-    
+
+
+api.add_resource(CheckSession, '/checksession')
 api.add_resource(AllUsers, '/users')
 api.add_resource(OneUser, '/user/<int:id>')
 api.add_resource(Login, '/login')
