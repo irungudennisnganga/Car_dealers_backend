@@ -40,14 +40,14 @@ def seed_data():
         db.session.add(importation2)
 
         # Add customers
-        customer1 = Customer(first_name='Alice', last_name='Johnson', email='alice@example.com', address='123 Main St', phone_number=1234567890, image='avatar.jpg')
-        customer2 = Customer(first_name='Bob', last_name='Smith', email='bob@example.com', address='456 Oak St', phone_number=9876543210, image='avatar.jpg')
+        customer1 = Customer(first_name='Alice', last_name='Johnson', email='alice@example.com', address='123 Main St', phone_number=1234567890, image='avatar.jpg', seller_id=3)
+        customer2 = Customer(first_name='Bob', last_name='Smith', email='bob@example.com', address='456 Oak St', phone_number=9876543210, image='avatar.jpg', seller_id=3)
         db.session.add(customer1)
         db.session.add(customer2)
 
         # Add sales
-        sale1 = Sale(commision=500, status='completed', history='No issues', discount=1000, sale_date='2023-03-01', customer_id=1, seller_id=1, inventory_id=1, promotions='Discount on next purchase')
-        sale2 = Sale(commision=700, status='completed', history='Minor scratches', discount=1500, sale_date='2023-04-01', customer_id=2, seller_id=2, inventory_id=2, promotions='Extended warranty')
+        sale1 = Sale(commision=500, status='completed', history='No issues', discount=1000, sale_date='2023-03-01', customer_id=1, seller_id=3, inventory_id=1, promotions='Discount on next purchase')
+        sale2 = Sale(commision=700, status='completed', history='Minor scratches', discount=1500, sale_date='2023-04-01', customer_id=2, seller_id=3, inventory_id=2, promotions='Extended warranty')
         db.session.add(sale1)
         db.session.add(sale2)
 

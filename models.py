@@ -24,6 +24,7 @@ class User(db.Model, SerializerMixin):
     report = db.relationship("Report", backref='user')
     notifications = db.relationship("Notification", backref='user')
     receipt = db.relationship("Receipt", backref='user')
+    customer =db.relationship("Customer", backref='user')
     
     
         # validates email format
@@ -150,7 +151,7 @@ class Importation(db.Model, SerializerMixin):
             'car_id':self.car_id
         }
 class Customer(db.Model, SerializerMixin):
-    __tablename__ ='customers'    
+    __tablename__ = 'customers'
 
     id = db.Column(db.Integer, primary_key=True)
     first_name = db.Column(db.String, nullable=False)
@@ -159,14 +160,15 @@ class Customer(db.Model, SerializerMixin):
     address = db.Column(db.String, nullable=False)
     phone_number = db.Column(db.String, nullable=False)
     image = db.Column(db.String, nullable=False)
+    seller_id = db.Column(db.Integer, db.ForeignKey("user.id", name="fk_customer_seller_id"), nullable=False)  # Corrected with constraint name
     created_at = db.Column(db.DateTime, server_default=db.func.now())
     updated_at = db.Column(db.DateTime, onupdate=db.func.now())
     
-    sale = db.relationship("Sale", backref='customers')
-    invoice = db.relationship("Invoice", backref='customers')
-    report = db.relationship("Report", backref='customers')
-    notification = db.relationship("Notification", backref='customers')
-    receipt = db.relationship("Receipt", backref='customers')
+    sale = db.relationship("Sale", backref='customer')
+    invoice = db.relationship("Invoice", backref='customer')
+    report = db.relationship("Report", backref='customer')
+    notification = db.relationship("Notification", backref='customer')
+    receipt = db.relationship("Receipt", backref='customer')
 
     def serializer(self):
         return{
