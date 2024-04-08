@@ -252,8 +252,7 @@ class OneUser(Resource):
         elif check_user_role.role == 'admin':
             user = User.query.filter_by(id=id, role='seller').first()
 
-        elif check_user_role.role == 'seller':
-            user = User.query.filter_by(id=id, role='seller').first()
+        
         else:
             return make_response(jsonify({"message": "Unauthorized User"}), 401)
 
@@ -546,11 +545,19 @@ class Importations(Resource):
 
         check_user_role = User.query.filter_by(id=user_id).first()
         if check_user_role.role == 'super admin' or check_user_role.role == 'admin':
+            # Get form data and uploaded file
             data = request.form
             import_document = request.files.get('import_document')
 
-            if import_document.filename == '':
-                return {'error': 'No image selected for upload'}, 400
+            # Check if all required fields are present
+            required_fields = ['country_of_origin', 'transport_fee', 'currency', 'import_duty', 'import_date', 'car_id']
+            missing_fields = [field for field in required_fields if field not in data]
+
+            if missing_fields:
+                return make_response(jsonify({"error": f"Missing required fields: {', '.join(missing_fields)}"}), 400)
+
+            if import_document is None or import_document.filename == '':
+                return {'error': 'No document selected for upload'}, 400
 
             def allowed_file(filename):
                 return '.' in filename and filename.rsplit('.', 1)[1].lower() in {'png', 'jpg', 'jpeg', 'gif', 'pdf', 'doc', 'docx', 'txt'}
@@ -558,24 +565,27 @@ class Importations(Resource):
             if not allowed_file(import_document.filename):
                 return {'error': 'Invalid file type. Only images are allowed'}, 400
 
-            # Upload image to Cloudinary
+            # Upload document to Cloudinary
             try:
-                image_upload_result = cloudinary.uploader.upload(
-                    import_document)
+                document_upload_result = cloudinary.uploader.upload(import_document)
             except Exception as e:
-                return {'error': f'Error uploading image: {str(e)}'}, 500
+                return {'error': f'Error uploading document: {str(e)}'}, 500
 
+            # Create new Importation object
             new_importation = Importation(
                 country_of_origin=data['country_of_origin'],
                 transport_fee=data['transport_fee'],
                 currency=data['currency'],
                 import_duty=data['import_duty'],
                 import_date=data['import_date'],
-                import_document=image_upload_result['secure_url'],
+                import_document=document_upload_result['secure_url'],
                 car_id=data['car_id']
             )
+
+            # Add and commit to database
             db.session.add(new_importation)
             db.session.commit()
+
             return make_response(jsonify({'message': 'Importation created successfully'}), 201)
         else:
             return make_response(jsonify({"message": "Unauthorized User"}), 404)
@@ -742,85 +752,139 @@ class SaleResource(Resource):
             inventory_id=data.get('inventory_id')
             promotions=data.get('promotions')
             
-            inventory =Inventory.query.filter_by(id =inventory_id).first()
-            
-            commision = inventory.price * 0.20
-            
-            sale = Sale(
-                commision=commision,
-                status=status,
-                history=history,
-                discount=discount,
-                sale_date=sale_date,
-                customer_id=customer_id,
-                seller_id=seller_id,
-                inventory_id=inventory_id,
-                promotions=promotions
-            )
+            if not status or not history or not discount or not sale_date or not customer_id or not inventory_id  :
+                inventory =Inventory.query.filter_by(id =inventory_id).first()
+                
+                commision = inventory.price * 0.20
+                
+                sale = Sale(
+                    commision=commision,
+                    status=status,
+                    history=history,
+                    discount=discount,
+                    sale_date=sale_date,
+                    customer_id=customer_id,
+                    seller_id=seller_id,
+                    inventory_id=inventory_id,
+                    promotions=promotions
+                )
 
-            db.session.add(sale)
-            db.session.commit()
+                db.session.add(sale)
+                db.session.commit()
 
-            return make_response(jsonify({'message': 'Sale created successfully'}), 201)
-        
+                return make_response(jsonify({'message': 'Sale created successfully'}), 201)
+            
+            else:
+                return make_response(jsonify({'message': 'Unauthorized User'}), 401)
         else:
-            return make_response(jsonify({'message': 'Unauthorized User'}), 401)
-
+            return make_response(jsonify({'message': 'Enter all Data required'}), 401)
     # GET
     @jwt_required()
     def get(self):
         user_id = get_jwt_identity()
 
         check_user_role = User.query.filter_by(id=user_id).first()
-        if check_user_role.role == 'super admin' or check_user_role.role == 'admin':
-            serialized_sales = [{
-                    "commision":sale.commision,
-                    "status":sale.status,
-                    "history":sale.history,
-                    "discount":sale.discount,
-                    "sale_date":sale.sale_date,
-                    "customer_id":sale.customer_id,
-                    "seller_id":sale.seller_id,
-                    "inventory_id":sale.inventory_id,
-                    "promotions":sale.promotions,
-                } for sale in Sale.query.all()]
-            return jsonify(serialized_sales)
+
+        if check_user_role.role == 'seller':
+            serialized_sales = []
+            for sale in Sale.query.all():
+                customer = Customer.query.filter_by(id=sale.customer_id).first()
+                seller = User.query.filter_by(id=sale.seller_id).first()
+                serialized_sale = {
+                    "commision": sale.commision,
+                    "status": sale.status,
+                    "history": sale.history,
+                    "discount": sale.discount,
+                    "sale_date": sale.sale_date,
+                    "customer": {
+                        "id": customer.id,
+                        "Names": f'{customer.first_name} {customer.last_name}',
+                        
+                        "email": customer.email,
+                        
+                    },
+                    "seller": {
+                        "id": seller.id,
+                        "Names ": f'{seller.first_name} {seller.last_name}',
+                        "email": seller.email,
+                       
+                    },
+                    "inventory_id": sale.inventory_id,
+                    "promotions": sale.promotions,
+                }
+                serialized_sales.append(serialized_sale)
+            return make_response(jsonify(serialized_sales), 200)
+        else:
+            return make_response(jsonify({"message":"User unauthorized"}), 401)
 
 class SaleItemResource(Resource):
     # GET
+    @jwt_required()
     def get(self, sale_id):
-        sale = Sale.query.get_or_404(sale_id)
-        one_sale ={
-                    "commision":sale.commision,
-                    "status":sale.status,
-                    "history":sale.history,
-                    "discount":sale.discount,
-                    "sale_date":sale.sale_date,
-                    "customer_id":sale.customer_id,
-                    "seller_id":sale.seller_id,
-                    "inventory_id":sale.inventory_id,
-                    "promotions":sale.promotions,
-                }
+        user_id = get_jwt_identity()
+
+        check_user_role = User.query.filter_by(id=user_id).first()
+
+        if not check_user_role.role == 'seller':
+            return make_response(jsonify({"message": "Unauthorized"}), 401)
+
+        sale = Sale.query.filter_by(id=sale_id).first()
+        
+        if not sale:
+            return make_response(jsonify({"message": "Sale not found"}), 404)
+
+        customer = Customer.query.filter_by(id=sale.customer_id).first()
+        seller = User.query.filter_by(id=sale.seller_id).first()
+
+        if not customer or not seller:
+            return make_response(jsonify({"message": "Customer or seller not found for this sale"}), 404)
+
+        one_sale = {
+            "commision": sale.commision,
+            "status": sale.status,
+            "history": sale.history,
+            "discount": sale.discount,
+            "sale_date": sale.sale_date,
+            "customer": {
+                "id": customer.id,
+                "Names": f'{customer.first_name} {customer.last_name}',
+                "email": customer.email,
+                
+            },
+            "seller": {
+                "id": seller.id,
+                "Names": f'{seller.first_name} {seller.last_name}',
+                "email": seller.email,
+                
+            },
+            "inventory_id": sale.inventory_id,
+            "promotions": sale.promotions,
+        }
         return make_response(jsonify(one_sale), 200)
 
     # PUT
+    @jwt_required()
     def put(self, sale_id):
-        sale = Sale.query.get_or_404(sale_id)
+        user_id = get_jwt_identity()
+
+        # Get the sale object
+        sale = Sale.query.filter_by(id=sale_id).first()
+
+        # Check if the logged-in user is the seller who created the sale
+        # if sale.seller_id != user_id:
+        #     return make_response(jsonify({"message": "Unauthorized"}), 401)
+
+        # Get the request data
         data = request.get_json()
 
-        sale.commision = data.get('commision', sale.commision)
-        sale.status = data.get('status', sale.status)
-        sale.history = data.get('history', sale.history)
-        sale.discount = data.get('discount', sale.discount)
-        sale.sale_date = data.get('sale_date', sale.sale_date)
-        sale.customer_id = data.get('customer_id', sale.customer_id)
-        sale.seller_id = data.get('seller_id', sale.seller_id)
-        sale.inventory_id = data.get('inventory_id', sale.inventory_id)
-        sale.promotions = data.get('promotions', sale.promotions)
-
+        
+        if 'status' in data:
+            sale.status = data['status']
+        
+        # Commit the changes to the database
         db.session.commit()
 
-        return jsonify({'message': 'Sale updated successfully'})
+        return make_response(jsonify({'message': 'Sale updated successfully'}))
 
     # DELETE
     def delete(self, sale_id):
