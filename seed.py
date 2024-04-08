@@ -19,17 +19,17 @@ def seed_data():
         password_hash = bcrypt.generate_password_hash('mypassword').decode('utf-8')
         password_hash2 = bcrypt.generate_password_hash('password').decode('utf-8')
 
-        user1 = User(first_name='Dennis', last_name='Irungu', email='irungud220@gmail.com', image='avatar.jpg', role='admin', contact=1234567890,_password_hash=password_hash)
-        user3 = User(first_name='dennis', last_name='irungu', email='dennisnganga7148@gmail.com', image='avatar.jpg', role='super admin', contact=345678765, _password_hash=password_hash2)
+        user1 = User(first_name='Dennis', last_name='Irungu', email='irungud220@gmail.com', image='https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcScNc6oZl7o7MuTWxfNXnWIiqzzCRmQg8sjBp59ZBZpFg&s', role='admin', contact=1234567890,_password_hash=password_hash)
+        user3 = User(first_name='dennis', last_name='irungu', email='dennisnganga7148@gmail.com', image='https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcS2bPWPwj6jFqpAFm7q02z4hQ2Uwt4vYEueQzkzpq7dfg&s', role='super admin', contact=345678765, _password_hash=password_hash2)
 
-        user2 = User(first_name='Jane', last_name='Smith', email='jane@example.com', image='avatar.jpg', role='seller', contact=9876543210, _password_hash=password_hash2)
+        user2 = User(first_name='Maurine', last_name='wambui', email='maurinewambui@gmail.com', image='https://imgv3.fotor.com/images/blog-cover-image/a-pink-barbie-doll-with-a-pink-background.jpg', role='seller', contact=9876543210, _password_hash=password_hash2)
         db.session.add(user1)
         db.session.add(user3)
         db.session.add(user2)
 
         # Add inventories
-        inventory1 = Inventory(make='Toyota', image='car.jpg', price=15000, currency='USD', model='SUV', year='2022', VIN=12345678901234567, color='Black', mileage=5000, body_style='SUV', transmission='Automatic', fuel_type='Gasoline', engine_size='3.5L', drive_type='AWD', trim_level='XLE', condition='New', availability='Available', cylinder=6, doors=4, stock_number=1001, purchase_cost=12000, profit=3000, user_id=1)
-        inventory2 = Inventory(make='Honda', image='car.jpg', price=20000, currency='USD', model='Sedan', year='2021', VIN=98765432109876543, color='White', mileage=10000, body_style='Sedan', transmission='Automatic', fuel_type='Gasoline', engine_size='2.0L', drive_type='FWD', trim_level='Touring', condition='Used', availability='Available', cylinder=4, doors=4, stock_number=1002, purchase_cost=15000, profit=5000, user_id=1)
+        inventory1 = Inventory(make='Toyota', image='https://images.pexels.com/photos/3311574/pexels-photo-3311574.jpeg?auto=compress&cs=tinysrgb&w=1260&h=750&dpr=1', price=15000, currency='USD', model='SUV', year='2022', VIN=12345678901234567, color='Black', mileage=5000, body_style='SUV', transmission='Automatic', fuel_type='Gasoline', engine_size='3.5L', drive_type='AWD', trim_level='XLE', condition='New', availability='Available', cylinder=6, doors=4, stock_number=1001, purchase_cost=12000, profit=3000, user_id=1)
+        inventory2 = Inventory(make='Honda', image='https://images.pexels.com/photos/712618/pexels-photo-712618.jpeg?auto=compress&cs=tinysrgb&w=600', price=20000, currency='USD', model='Sedan', year='2021', VIN=98765432109876543, color='White', mileage=10000, body_style='Sedan', transmission='Automatic', fuel_type='Gasoline', engine_size='2.0L', drive_type='FWD', trim_level='Touring', condition='Used', availability='Available', cylinder=4, doors=4, stock_number=1002, purchase_cost=15000, profit=5000, user_id=1)
         db.session.add(inventory1)
         db.session.add(inventory2)
 
@@ -40,8 +40,8 @@ def seed_data():
         db.session.add(importation2)
 
         # Add customers
-        customer1 = Customer(first_name='Alice', last_name='Johnson', email='alice@example.com', address='123 Main St', phone_number=1234567890, image='avatar.jpg', seller_id=3)
-        customer2 = Customer(first_name='Bob', last_name='Smith', email='bob@example.com', address='456 Oak St', phone_number=9876543210, image='avatar.jpg', seller_id=3)
+        customer1 = Customer(first_name='Alice', last_name='Johnson', email='alice@example.com', address='123 Main St', phone_number=1234567890, image='https://static.wikia.nocookie.net/cartoons/images/e/ed/Profile_-_SpongeBob_SquarePants.png/revision/latest/thumbnail/width/360/height/360?cb=20230305115632', seller_id=3)
+        customer2 = Customer(first_name='Bob', last_name='Smith', email='bob@example.com', address='456 Oak St', phone_number=9876543210, image='https://upload.wikimedia.org/wikipedia/en/2/2f/Jerry_Mouse.png', seller_id=3)
         db.session.add(customer1)
         db.session.add(customer2)
 
