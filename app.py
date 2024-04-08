@@ -651,10 +651,13 @@ class UpdateImportation(Resource):
         else:
             return make_response(jsonify({"message": "Unauthorized User"}), 404)
 
-
 class CustomerDetails(Resource):
-    # @jwt_required()
+    @jwt_required()
     def get(self):
+        # Get the current user's ID from the JWT token
+        current_user_id = get_jwt_identity()
+        
+        # Retrieve only the customers associated with the current seller (user)
         customers = [{
             "first_name": customer.first_name,
             'last_name': customer.last_name,
@@ -662,19 +665,15 @@ class CustomerDetails(Resource):
             'address': customer.address,
             'phone_number': customer.phone_number,
             'image_file': customer.image
+        } for customer in Customer.query.filter_by(seller_id=current_user_id).all()]
 
-        } for customer in Customer.query.all()]
-
-        return make_response(jsonify(customers),
-                             200)
-
-    # @jwt_required()  # Require JWT authentication
+        return make_response(jsonify(customers), 200)
+    
+    @jwt_required()  # Require JWT authentication
     def post(self):
 
-        # user_id = get_jwt_identity()
+        user_id = get_jwt_identity()
 
-        # check_user_role = User.query.filter_by(id=user_id).first()
-        # if check_user_role.role == 'seller' or check_user_role.role == 'admin':
         data = request.form
         first_name = data.get('first_name')
         last_name = data.get('last_name')
@@ -687,13 +686,13 @@ class CustomerDetails(Resource):
             return {'error': '422 Unprocessable Entity', 'message': 'Missing customer details'}, 422
 
         # Get the current user's ID from the JWT token
-        # current_user_id = get_jwt_identity()
+        current_user_id = get_jwt_identity()
 
         # Retrieve the user object from the database
-        # user = User.query.filter_by(id=current_user_id).first()
+        user = User.query.filter_by(id=current_user_id).first()
 
         # Check if the user exists and has the role "seller"
-        # if not user or user.role != "seller":
+        if not user or user.role != "seller":
             return {'error': '403 Forbidden', 'message': 'User is not authorized to add customer details'}, 403
 
         # Check if file uploaded and is an image
@@ -721,15 +720,68 @@ class CustomerDetails(Resource):
             phone_number=phone_number,
             # Store Cloudinary URL
             image=image_upload_result['secure_url'],
-            created_at=datetime.now()
+            created_at=datetime.now(),
 
-            # seller_id=user_id  # Assign the current user ID as the seller ID
+            seller_id=user_id  # Assign the current user ID as the seller ID
         )
 
         db.session.add(new_customer)
         db.session.commit()
 
         return {'message': 'Customer details added successfully'}, 201
+class UpdateDetails(Resource):    
+    @jwt_required()
+    def put(self, customer_id):
+        # Get the current user's identity
+        current_user_id = get_jwt_identity()
+
+        # Retrieve the customer to update
+        customer = Customer.query.filter_by(id=customer_id, seller_id=current_user_id).first()
+        if not customer:
+            return {'message': 'Customer not found or not authorized to update'}, 404
+
+        # Parse customer data from request form
+        data = request.form
+        image_file = request.files.get('image')
+
+        # Update fields if they are provided
+        for key in ['first_name', 'last_name', 'email', 'address', 'phone_number']:
+            if key in data:
+                setattr(customer, key, data[key])
+
+        # Check if file uploaded and is an image
+        if image_file.filename == '':
+            return {'error': 'No image selected for upload'}, 400
+
+        def allowed_file(filename):
+            return '.' in filename and filename.rsplit('.', 1)[1].lower() in {'png', 'jpg', 'jpeg', 'gif'}
+
+        if not allowed_file(image_file.filename):
+            return {'error': 'Invalid file type. Only images are allowed'}, 400
+
+        # Upload image to Cloudinary
+        try:
+            image_upload_result = cloudinary.uploader.upload(image_file)
+        except Exception as e:
+            return {'error': f'Error uploading image: {str(e)}'}, 500
+
+        db.session.commit()
+        return {'message': 'Customer details updated successfully'}, 200
+class DeleteDetails(Resource):
+    @jwt_required()
+    def delete(self, customer_id):
+        # Get the current user's identity
+        current_user_id = get_jwt_identity()
+
+        # Retrieve and delete the customer
+        customer = Customer.query.filter_by(id=customer_id, seller_id=current_user_id).first()
+        if not customer:
+            return {'message': 'Customer not found or not authorized to delete'}, 404
+
+        db.session.delete(customer)
+        db.session.commit()
+
+        return {'message': 'Customer deleted successfully'}, 200
 
 class SaleResource(Resource):
     # POST
@@ -909,6 +961,7 @@ api.add_resource(UpdateImportation, '/importations/<int:importation_id>')
 api.add_resource(CustomerDetails, '/customerdetails')
 api.add_resource(SaleResource, '/sales')
 api.add_resource(SaleItemResource, '/sale/<int:sale_id>')
-
+api.add_resource(UpdateDetails, '/updatedetails/<int:customer_id>')
+api.add_resource(DeleteDetails, '/deletedetails/<int:customer_id>')
 if __name__ == "__main__":
     app.run(port=5555, debug=True)
