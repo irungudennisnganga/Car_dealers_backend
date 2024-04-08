@@ -339,3 +339,11 @@ class GalleryImage(db.Model,SerializerMixin):
     def __init__(self, url, inventory_id):
         self.url = url
         self.inventory_id = inventory_id
+        
+    def serializer(self):
+        return{
+            'id':self.id,
+            'url':self.url,
+            'inventory_id':self.inventory_id,
+            
+        }

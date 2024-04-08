@@ -189,88 +189,51 @@ class OneUser(Resource):
         user_id = get_jwt_identity()
 
         check_user_role = User.query.filter_by(id=user_id).first()
-
-        if check_user_role.role == "admin":
-            # here one is quering all the users available filtering them by their id's, after getting the first user, we serialize the user
-
+        
+        if check_user_role.role == "admin" or  check_user_role.role == "seller"  :
             user = User.query.filter_by(id=id, role='seller').first()
-
         elif check_user_role.role == "super admin":
-
             user = User.query.filter_by(id=id).first()
         else:
             return make_response(jsonify({"message": "Un Authorized User"}), 401)
-        # if no user is found the method will stop there and return "No users found"
+        
+        if user:
+            user = User.query.filter_by(id=id, role='seller').first()
+
         if not user:
             return {"message": "No user found"}
-        sales = Sale.query.filter_by(seller_id=user.id).all()
+
+        sales = Sale.query.filter_by(seller_id=user.id, status="completed").all()
+        number_of_sales = len(sales)
+        total_commission = sum(sale.commision for sale in sales) 
+        
         user_data = {
             'id': user.id,
             'first_name': user.first_name,
             'last_name': user.last_name,
-            'image': user.image,
+            'image': user.image,  
             'email': user.email,
             'role': user.role,
             'contact': user.contact,
-            "sales": [{
+            "sales":
+                [{
                 "id": sale.id,
                 "commision": sale.commision,
                 "status": sale.status,
                 "history": sale.history,
                 "discount": sale.discount,
                 "sale_date": sale.sale_date,
-                "customer": [
-                      {
-                          "id": customer.id,
-                          "first_name": customer.first_name,
-                          "last_name": customer.last_name,
-                          "email": customer.email,
-                          "address": customer.address,
-                          "phone_number": customer.phone_number,
-                          "image": customer.image
-                      } for customer in Customer.query.filter_by(id=sale.customer_id)
-                      ],
-                "inventory": [
-                    {
-                        "id": inventory.id,
-                        'make': inventory.make,
-                        'price': inventory.price,
-                        'currency': inventory.currency,
-                        'image': inventory.image,
-                        'model': inventory.model,
-                        'year': inventory.year,
-                        'VIN': inventory.VIN,
-                        'color': inventory.color,
-                        'mileage': inventory.mileage,
-                        'body_style': inventory.body_style,
-                        'transmission': inventory.transmission,
-                        'fuel_type': inventory.fuel_type,
-                        'engine_size': inventory.engine_size,
-                        'drive_type': inventory.drive_type,
-                        'trim_level': inventory.trim_level,
-                        'gallery': inventory.gallery,
-                        'condition': inventory.condition,
-                        'availability': inventory.availability,
-                        'cylinder': inventory.cylinder,
-                        'doors': inventory.doors,
-                        'features': inventory.features,
-                        'stock_number': inventory.stock_number,
-                        'purchase_cost': inventory.purchase_cost,
-                        'profit': inventory.profit,
-                        # 'user_id':inventory.user_id
-                    } for inventory in Inventory.query.filter_by(id=sale.inventory_id).all()
-                ],
-                "promotions": sale.promotions
-
-            } for sale in sales]
+                
+                "promotions": sale.promotions,
+                
+                
+            } for  sale in sales],  # Using enumerate to count sales starting from 1
+            "number_of_sales":number_of_sales,
+            
+            "total_commission": total_commission 
         }
 
-        #  after getting a user we jsonify the data received
-        response = make_response(
-            jsonify(user_data),
-            200
-        )
-
+        response = make_response(jsonify(user_data), 200)
         return response
 
     @jwt_required()
@@ -768,7 +731,7 @@ class SaleResource(Resource):
         if check_user_role.role == 'seller':
             data = request.get_json()
 
-            commision =data.get('commision')
+            # commision =data.get('commision')
             
             status=data.get('status')
             history=data.get('history')
@@ -779,6 +742,9 @@ class SaleResource(Resource):
             inventory_id=data.get('inventory_id')
             promotions=data.get('promotions')
             
+            inventory =Inventory.query.filter_by(id =inventory_id).first()
+            
+            commision = inventory.price * 0.20
             
             sale = Sale(
                 commision=commision,
