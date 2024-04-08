@@ -197,8 +197,8 @@ class OneUser(Resource):
         else:
             return make_response(jsonify({"message": "Un Authorized User"}), 401)
         
-        if user:
-            user = User.query.filter_by(id=id, role='seller').first()
+        # if user:
+        #     user = User.query.filter_by(id=id, role='seller').first()
 
         if not user:
             return {"message": "No user found"}
