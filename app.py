@@ -983,7 +983,7 @@ class AdminSales(Resource):
                     },
                     "seller": {
                         "id": seller.id,
-                        "Names ": f'{seller.first_name} {seller.last_name}',
+                        "Names": f'{seller.first_name} {seller.last_name}',
                         "email": seller.email,
                        
                     },
