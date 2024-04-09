@@ -946,7 +946,90 @@ class SaleItemResource(Resource):
 
         return jsonify({'message': 'Sale deleted successfully'})
     
+class AdminSales(Resource):
+    @jwt_required()
+    def get(self):
+        user_id = get_jwt_identity()
 
+        check_user_role = User.query.filter_by(id=user_id).first()
+
+        if check_user_role.role == 'admin' or check_user_role.role == 'super admin':
+            serialized_sales = []
+            for sale in Sale.query.all():
+                customer = Customer.query.filter_by(id=sale.customer_id).first()
+                seller = User.query.filter_by(id=sale.seller_id).first()
+                serialized_sale = {
+                    "commision": sale.commision,
+                    "status": sale.status,
+                    "history": sale.history,
+                    "discount": sale.discount,
+                    "sale_date": sale.sale_date,
+                    "customer": {
+                        "id": customer.id,
+                        "Names": f'{customer.first_name} {customer.last_name}',
+                        
+                        "email": customer.email,
+                        
+                    },
+                    "seller": {
+                        "id": seller.id,
+                        "Names ": f'{seller.first_name} {seller.last_name}',
+                        "email": seller.email,
+                       
+                    },
+                    "inventory_id": sale.inventory_id,
+                    "promotions": sale.promotions,
+                }
+                serialized_sales.append(serialized_sale)
+            return make_response(jsonify(serialized_sales), 200)
+        else:
+            return make_response(jsonify({"message":"User unauthorized"}), 401)
+        
+class OneSellerAdmin(Resource):
+    @jwt_required()
+    def get(self, sale_id):
+        user_id = get_jwt_identity()
+
+        check_user_role = User.query.filter_by(id=user_id).first()
+
+        if check_user_role.role == 'admin' or check_user_role.role == 'super admin':
+            
+            sale = Sale.query.filter_by(id=sale_id).first()
+            
+            if not sale:
+                return make_response(jsonify({"message": "Sale not found"}), 404)
+
+            customer = Customer.query.filter_by(id=sale.customer_id).first()
+            seller = User.query.filter_by(id=sale.seller_id).first()
+
+            if not customer or not seller:
+                return make_response(jsonify({"message": "Customer or seller not found for this sale"}), 404)
+
+            one_sale = {
+                "commision": sale.commision,
+                "status": sale.status,
+                "history": sale.history,
+                "discount": sale.discount,
+                "sale_date": sale.sale_date,
+                "customer": {
+                    "id": customer.id,
+                    "Names": f'{customer.first_name} {customer.last_name}',
+                    "email": customer.email,
+                    
+                },
+                "seller": {
+                    "id": seller.id,
+                    "Names": f'{seller.first_name} {seller.last_name}',
+                    "email": seller.email,
+                    
+                },
+                "inventory_id": sale.inventory_id,
+                "promotions": sale.promotions,
+            }
+            return make_response(jsonify(one_sale), 200)
+        else:
+            return make_response(jsonify({"message":"User unauthorized"}), 401)    
+        
 
 api.add_resource(CheckSession, '/checksession')
 api.add_resource(AllUsers, '/users')
@@ -963,5 +1046,8 @@ api.add_resource(SaleResource, '/sales')
 api.add_resource(SaleItemResource, '/sale/<int:sale_id>')
 api.add_resource(UpdateDetails, '/updatedetails/<int:customer_id>')
 api.add_resource(DeleteDetails, '/deletedetails/<int:customer_id>')
+api.add_resource(AdminSales, '/sellers')
+api.add_resource(OneSellerAdmin, '/seller/<int:sale_id>')
+
 if __name__ == "__main__":
     app.run(port=5555, debug=True)
