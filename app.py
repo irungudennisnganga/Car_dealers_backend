@@ -842,6 +842,7 @@ class SaleResource(Resource):
             for sale in Sale.query.all():
                 customer = Customer.query.filter_by(id=sale.customer_id).first()
                 seller = User.query.filter_by(id=sale.seller_id).first()
+                inventory =Inventory.query.filter_by(id =sale.inventory_id).first()
                 serialized_sale = {
                     "commision": sale.commision,
                     "status": sale.status,
@@ -861,7 +862,10 @@ class SaleResource(Resource):
                         "email": seller.email,
                        
                     },
-                    "inventory_id": sale.inventory_id,
+                    "inventory_id": {
+                                 "id":inventory.id,
+                                 "name":inventory.make
+                                 },
                     "promotions": sale.promotions,
                 }
                 serialized_sales.append(serialized_sale)
@@ -887,6 +891,7 @@ class SaleItemResource(Resource):
 
         customer = Customer.query.filter_by(id=sale.customer_id).first()
         seller = User.query.filter_by(id=sale.seller_id).first()
+        inventory =Inventory.query.filter_by(id =sale.inventory_id).first()
 
         if not customer or not seller:
             return make_response(jsonify({"message": "Customer or seller not found for this sale"}), 404)
@@ -909,7 +914,10 @@ class SaleItemResource(Resource):
                 "email": seller.email,
                 
             },
-            "inventory_id": sale.inventory_id,
+            "inventory_id": {
+                                 "id":inventory.id,
+                                 "name":inventory.make
+                                 },
             "promotions": sale.promotions,
         }
         return make_response(jsonify(one_sale), 200)
@@ -958,7 +966,9 @@ class AdminSales(Resource):
             for sale in Sale.query.all():
                 customer = Customer.query.filter_by(id=sale.customer_id).first()
                 seller = User.query.filter_by(id=sale.seller_id).first()
+                inventory =Inventory.query.filter_by(id =sale.inventory_id).first()
                 serialized_sale = {
+                    "id":sale.id,
                     "commision": sale.commision,
                     "status": sale.status,
                     "history": sale.history,
@@ -977,7 +987,10 @@ class AdminSales(Resource):
                         "email": seller.email,
                        
                     },
-                    "inventory_id": sale.inventory_id,
+                    "inventory_id": {
+                                 "id":inventory.id,
+                                 "name":inventory.make
+                                 },
                     "promotions": sale.promotions,
                 }
                 serialized_sales.append(serialized_sale)
@@ -1001,7 +1014,8 @@ class OneSellerAdmin(Resource):
 
             customer = Customer.query.filter_by(id=sale.customer_id).first()
             seller = User.query.filter_by(id=sale.seller_id).first()
-
+            inventory =Inventory.query.filter_by(id =sale.inventory_id).first()
+            
             if not customer or not seller:
                 return make_response(jsonify({"message": "Customer or seller not found for this sale"}), 404)
 
@@ -1023,7 +1037,10 @@ class OneSellerAdmin(Resource):
                     "email": seller.email,
                     
                 },
-                "inventory_id": sale.inventory_id,
+                "inventory_id": {
+                                 "id":inventory.id,
+                                 "name":inventory.make
+                                 },
                 "promotions": sale.promotions,
             }
             return make_response(jsonify(one_sale), 200)
