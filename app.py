@@ -1048,6 +1048,155 @@ class OneSellerAdmin(Resource):
             return make_response(jsonify({"message":"User unauthorized"}), 401)    
         
 
+
+class Invoice(Resource):
+    # POST
+    @jwt_required()
+    def post(self):
+        user_id = get_jwt_identity()
+
+        # Get data from the request
+        data = request.get_json()
+
+        # Check user role and permissions here if needed
+
+        new_invoice = Invoice(
+            date_of_purchase=data['date_of_purchase'],
+            method=data['method'],
+            amount_paid=data['amount_paid'],
+            fees=data.get('fees'),
+            tax=data.get('tax'),
+            currency=data.get('currency'),
+            seller_id=data.get('seller_id'),
+            sale_id=data.get('sale_id'),
+            balance=data.get('balance'),
+            total_amount=data.get('total_amount'),
+            installments=data.get('installments'),
+            pending_cleared=data.get('pending_cleared'),
+            customer_id=data.get('customer_id'),
+            vehicle_id=data.get('vehicle_id'),
+            signature=data.get('signature'),
+            warranty_info=data.get('warranty_info'),
+            terms_and_conditions=data.get('terms_and_conditions'),
+            agreement_details=data.get('agreement_details'),
+            additional_accessories=data.get('additional_accessories'),
+            notes_instructions=data.get('notes_instructions'),
+            payment_proof=data.get('payment_proof'),
+           
+        )
+
+        db.session.add(new_invoice)
+        db.session.commit()
+
+        return make_response(jsonify({'message': 'Invoice created successfully'}), 201)
+
+    # GET
+    @jwt_required()
+    def get(self):
+        invoices = Invoice.query.all()
+        return make_response(jsonify([{
+            'id': invoice.id,
+            'date_of_purchase': invoice.date_of_purchase,
+            'method': invoice.method,
+            'fees': invoice.fees,
+            'tax': invoice.tax,
+            'currency': invoice.currency,
+            'seller_id': invoice.seller_id,
+            'sale_id': invoice.sale_id,
+            'balance': invoice.balance,
+            'total_amount': invoice.total_amount,
+            'installments': invoice.installments,
+            'pending_cleared': invoice.pending_cleared,
+            'customer_id': invoice.customer_id,
+            'vehicle_id': invoice.vehicle_id,
+            'signature': invoice.signature,
+            'warranty_info': invoice.warranty_info,
+            'terms_and_conditions': invoice.terms_and_conditions,
+            'agreement_details': invoice.agreement_details,
+            'additional_accessories': invoice.additional_accessories,
+            'notes_instructions': invoice.notes_instructions,
+            'payment_proof': invoice.payment_proof
+            
+        } for invoice in invoices]))
+
+    # PATCH
+    @jwt_required()
+    def patch(self, id):
+        user_id = get_jwt_identity()
+
+        # Get data from the request
+        data = request.get_json()
+
+        invoice = Invoice.query.filter_by(id=id).first()
+        if not invoice:
+            return {'message': 'Invoice not found'}, 404
+
+        # Update fields if provided in the request
+        if 'date_of_purchase' in data:
+            invoice.date_of_purchase = data['date_of_purchase']
+        if 'method' in data:
+            invoice.method = data['method']
+        if 'amount_paid' in data:
+            invoice.amount_paid = data['amount_paid']
+        if 'fees' in data:
+            invoice.fees = data['fees']
+        if 'tax' in data:
+            invoice.tax = data['tax']
+        if 'currency' in data:
+            invoice.currency = data['currency']
+        if 'seller_id' in data:
+            invoice.seller_id = data['seller_id']
+        if 'sale_id' in data:
+            invoice.sale_id = data['sale_id']
+        if 'balance' in data:
+            invoice.balance = data['balance']
+        if 'total_amount' in data:
+            invoice.total_amount = data['total_amount']
+        if 'installments' in data:
+            invoice.installments = data['installments']
+        if 'pending_cleared' in data:
+            invoice.pending_cleared = data['pending_cleared']
+        if 'customer_id' in data:
+            invoice.customer_id = data['customer_id']
+        if 'vehicle_id' in data:
+            invoice.vehicle_id = data['vehicle_id']
+        if 'signature' in data:
+            invoice.signature = data['signature']
+        if 'warranty_info' in data:
+            invoice.warranty_info = data['warranty_info']
+        if 'terms_and_conditions' in data:
+            invoice.terms_and_conditions = data['terms_and_conditions']
+        if 'agreement_details' in data:
+            invoice.agreement_details = data['agreement_details']
+        if 'additional_accessories' in data:
+            invoice.additional_accessories = data['additional_accessories']
+        if 'notes_instructions' in data:
+            invoice.notes_instructions = data['notes_instructions']
+        if 'payment_proof' in data:
+            invoice.payment_proof = data['payment_proof']  
+        
+        # Update other fields similarly
+
+        db.session.commit()
+        return {'message': 'Invoice updated successfully'}, 200
+
+    # DELETE
+    @jwt_required()
+    def delete(self, id):
+        user_id = get_jwt_identity()
+
+        invoice = Invoice.query.filter_by(id=id).first()
+        if not invoice:
+            return {'message': 'Invoice not found'}, 404
+
+        
+
+        db.session.delete(invoice)
+        db.session.commit()
+
+        return {'message': 'Invoice deleted successfully'}, 200
+        
+
 api.add_resource(CheckSession, '/checksession')
 api.add_resource(AllUsers, '/users')
 api.add_resource(OneUser, '/user/<int:id>')
@@ -1065,6 +1214,11 @@ api.add_resource(UpdateDetails, '/updatedetails/<int:customer_id>')
 api.add_resource(DeleteDetails, '/deletedetails/<int:customer_id>')
 api.add_resource(AdminSales, '/sellers')
 api.add_resource(OneSellerAdmin, '/seller/<int:sale_id>')
+api.add_resource(Invoice, '/invoice', '/invoice/<int:id>') # passed them both over here 
+
+
+
+
 
 if __name__ == "__main__":
     app.run(port=5555, debug=True)
