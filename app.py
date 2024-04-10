@@ -284,8 +284,8 @@ class OneUser(Resource):
                 except Exception as e:
                     return {'error': f'Error uploading image: {str(e)}'}, 500
 
-            if 'email' in data:
-                user.email = data.get('email')
+            # if 'email' in data:
+            #     user.email = data.get('email')
             if 'contact' in data:
                 user.contact = data.get('contact')
             if 'role' in data:

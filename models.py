@@ -160,7 +160,7 @@ class Customer(db.Model, SerializerMixin):
     address = db.Column(db.String, nullable=False)
     phone_number = db.Column(db.String, nullable=False)
     image = db.Column(db.String, nullable=False)
-    seller_id = db.Column(db.Integer, db.ForeignKey("user.id", name="fk_customer_seller_id"), nullable=False)  # Corrected with constraint name
+    seller_id = db.Column(db.Integer, db.ForeignKey("user.id", name="fk_customer_seller_id")) 
     created_at = db.Column(db.DateTime, server_default=db.func.now())
     updated_at = db.Column(db.DateTime, onupdate=db.func.now())
     
