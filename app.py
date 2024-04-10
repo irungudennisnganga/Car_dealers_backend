@@ -1,4 +1,4 @@
-from models import User, Inventory, Importation, Customer, GalleryImage, Sale
+from models import User, Inventory, Importation, Customer, GalleryImage, Sale, Invoice
 from config import app, api, db, bcrypt
 from flask_restful import Resource
 from flask import request, jsonify, make_response
@@ -1047,6 +1047,109 @@ class OneSellerAdmin(Resource):
         else:
             return make_response(jsonify({"message":"User unauthorized"}), 401)    
         
+class InvoiceCreate(Resource):
+    @jwt_required()
+    def post(self):
+        user_id = get_jwt_identity()
+        current_user = User.query.get(user_id)
+        
+        if current_user.role != 'seller':
+            return make_response(jsonify({'message': 'Unauthorized - Only sellers can create invoices'}), 403)
+
+        data = request.get_json()
+        try:
+            new_invoice = Invoice(
+                date_of_purchase=datetime.datetime.strptime(data['date_of_purchase'], "%Y-%m-%d"),
+                method=data['method'],
+                amount_paid=data['amount_paid'],
+                fee=data['fee'],
+                tax=data['tax'],
+                currency=data['currency'],
+                seller_id=user_id,  
+                customer_id=data['customer_id'],
+                vehicle_id=data['vehicle_id'],
+                balance=data['balance'],
+                total_amount=data['total_amount'],
+                installments=data['installments'],
+                pending_cleared=data['pending_cleared'],
+                signature=data['signature'],
+                warranty=data['warranty'],
+                terms_and_conditions=data['terms_and_conditions'],
+                agreement_details=data['agreement_details'],
+                additional_accessories=data['additional_accessories'],
+                notes_instructions=data['notes_instructions'],
+                payment_proof=data['payment_proof'],
+                created_at=datetime.datetime.now(),
+                updated_at=datetime.datetime.now()
+            )
+            db.session.add(new_invoice)
+            db.session.commit()
+            return make_response(jsonify({'message': 'Invoice created successfully', 'invoice_id': new_invoice.id}), 201)
+        except Exception as e:
+            return make_response(jsonify({'message': 'Failed to create invoice', 'error': str(e)}), 500)
+
+class InvoiceGet(Resource):
+    @jwt_required()
+    def get(self, invoice_id):
+        invoice = Invoice.query.get(invoice_id)
+        if invoice:
+            invoice_data = {
+                'id': invoice.id,
+                'date_of_purchase': invoice.date_of_purchase,
+                'method': invoice.method,
+                'amount_paid': invoice.amount_paid,
+                'fee': invoice.fee,
+                'tax': invoice.tax,
+                'currency': invoice.currency,
+                'seller_id': invoice.seller_id,
+                'customer_id': invoice.customer_id,
+                'vehicle_id': invoice.vehicle_id,
+                'balance': invoice.balance,
+                'total_amount': invoice.total_amount,
+                'installments': invoice.installments,
+                'pending_cleared': invoice.pending_cleared,
+                'signature': invoice.signature,
+                'warranty': invoice.warranty,
+                'terms_and_conditions': invoice.terms_and_conditions,
+                'agreement_details': invoice.agreement_details,
+                'additional_accessories': invoice.additional_accessories,
+                'notes_instructions': invoice.notes_instructions,
+                'payment_proof': invoice.payment_proof,
+                'created_at': invoice.created_at.isoformat() if invoice.created_at else None,
+                'updated_at': invoice.updated_at.isoformat() if invoice.updated_at else None,
+               
+            }
+            return jsonify(invoice_data)
+        else:
+            return make_response(jsonify({'message': 'Invoice not found'}), 404)
+class InvoiceUpdate(Resource):
+    @jwt_required()
+    def put(self, invoice_id):
+        invoice = Invoice.query.get(invoice_id)
+        if not invoice:
+            return make_response(jsonify({'message': 'Invoice not found'}), 404)
+        
+        data = request.get_json()
+        for key, value in data.items():
+            if hasattr(invoice, key):
+                setattr(invoice, key, value)
+        
+        db.session.commit()
+        return make_response(jsonify({'message': 'Invoice updated successfully'}), 200)
+    
+class InvoiceDelete(Resource):
+    @jwt_required()
+    def delete(self, invoice_id):
+        invoice = Invoice.query.get(invoice_id)
+        if not invoice:
+            return make_response(jsonify({'message': 'Invoice not found'}), 404)
+        
+        db.session.delete(invoice)
+        db.session.commit()
+        return make_response(jsonify({'message': 'Invoice deleted successfully'}), 200)
+
+
+
 
 api.add_resource(CheckSession, '/checksession')
 api.add_resource(AllUsers, '/users')
@@ -1065,6 +1168,10 @@ api.add_resource(UpdateDetails, '/updatedetails/<int:customer_id>')
 api.add_resource(DeleteDetails, '/deletedetails/<int:customer_id>')
 api.add_resource(AdminSales, '/sellers')
 api.add_resource(OneSellerAdmin, '/seller/<int:sale_id>')
+api.add_resource(InvoiceCreate, '/invoice')
+api.add_resource(InvoiceGet, '/invoice/<int:invoice_id>')
+api.add_resource(InvoiceUpdate, '/updateinvoice/<int:invoice_id>')
+api.add_resource(InvoiceDelete, '/deleteinvoice/<int:invoice_id>')
 
 if __name__ == "__main__":
     app.run(port=5555, debug=True)
