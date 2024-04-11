@@ -1045,157 +1045,241 @@ class OneSellerAdmin(Resource):
             }
             return make_response(jsonify(one_sale), 200)
         else:
-            return make_response(jsonify({"message":"User unauthorized"}), 401)    
-        
+            return make_response(jsonify({"message":"User unauthorized"}), 401)  
 
-
-class Invoice(Resource):
+class Report(Resource):
     # POST
     @jwt_required()
     def post(self):
         user_id = get_jwt_identity()
 
-        # Get data from the request
-        data = request.get_json()
+        check_user_role = User.query.filter_by(id=user_id).first()
+        data = request.json
 
-        # Check user role and permissions here if needed
+        if check_user_role.role == 'admin' or check_user_role.role == 'super admin':
+            new_report = Report(
+                company_profit=data.get('company_profit'),
+                sales_id=data.get('sales_id'),
+                expenses=data.get('expenses'),
+                inventory_id=data.get('inventory_id'),
+                sale_date=data.get('sale_date'),
+                customer_id=data.get('customer_id'),
+                seller_id=data.get('seller_id'),
+                importation_id=data.get('importation_id')
+            )
 
-        new_invoice = Invoice(
-            date_of_purchase=data['date_of_purchase'],
-            method=data['method'],
-            amount_paid=data['amount_paid'],
-            fees=data.get('fees'),
-            tax=data.get('tax'),
-            currency=data.get('currency'),
-            seller_id=data.get('seller_id'),
-            sale_id=data.get('sale_id'),
-            balance=data.get('balance'),
-            total_amount=data.get('total_amount'),
-            installments=data.get('installments'),
-            pending_cleared=data.get('pending_cleared'),
-            customer_id=data.get('customer_id'),
-            vehicle_id=data.get('vehicle_id'),
-            signature=data.get('signature'),
-            warranty_info=data.get('warranty_info'),
-            terms_and_conditions=data.get('terms_and_conditions'),
-            agreement_details=data.get('agreement_details'),
-            additional_accessories=data.get('additional_accessories'),
-            notes_instructions=data.get('notes_instructions'),
-            payment_proof=data.get('payment_proof'),
-           
-        )
+            db.session.add(new_report)
+            db.session.commit()
 
-        db.session.add(new_invoice)
-        db.session.commit()
-
-        return make_response(jsonify({'message': 'Invoice created successfully'}), 201)
+            db.session.refresh(new_report)  
+            return make_response(jsonify({'message': 'Report created successfully'}), 201)
+        else:
+            return make_response(jsonify({'message': 'User has no access rights to create a report'}), 401)
 
     # GET
     @jwt_required()
     def get(self):
-        invoices = Invoice.query.all()
+        reports = Report.query.all()
         return make_response(jsonify([{
-            'id': invoice.id,
-            'date_of_purchase': invoice.date_of_purchase,
-            'method': invoice.method,
-            'fees': invoice.fees,
-            'tax': invoice.tax,
-            'currency': invoice.currency,
-            'seller_id': invoice.seller_id,
-            'sale_id': invoice.sale_id,
-            'balance': invoice.balance,
-            'total_amount': invoice.total_amount,
-            'installments': invoice.installments,
-            'pending_cleared': invoice.pending_cleared,
-            'customer_id': invoice.customer_id,
-            'vehicle_id': invoice.vehicle_id,
-            'signature': invoice.signature,
-            'warranty_info': invoice.warranty_info,
-            'terms_and_conditions': invoice.terms_and_conditions,
-            'agreement_details': invoice.agreement_details,
-            'additional_accessories': invoice.additional_accessories,
-            'notes_instructions': invoice.notes_instructions,
-            'payment_proof': invoice.payment_proof
-            
-        } for invoice in invoices]))
+            'id': report.id,
+            'company_profit': report.company_profit,
+            'sales_id': report.sales_id,
+            'expenses': report.expenses,
+            'inventory_id': report.inventory_id,
+            'sale_date': report.sale_date,
+            'customer_id': report.customer_id,
+            'seller_id': report.seller_id,
+            'importation_id': report.importation_id
+        } for report in reports]))
 
+
+class Report_update(Resource):
     # PATCH
     @jwt_required()
     def patch(self, id):
         user_id = get_jwt_identity()
+        check_user_role = User.query.filter_by(id=user_id).first()
 
-        # Get data from the request
-        data = request.get_json()
+        report = Report.query.filter_by(id=id).first()
+        if not report:
+            return {'message': 'Report not found'}, 404
 
-        invoice = Invoice.query.filter_by(id=id).first()
-        if not invoice:
-            return {'message': 'Invoice not found'}, 404
+        if check_user_role.role == 'admin' or check_user_role.role == 'super admin':
+            data = request.json
+            for key, value in data.items():
+                if hasattr(report, key):
+                    setattr(report, key, value)
 
-        # Update fields if provided in the request
-        if 'date_of_purchase' in data:
-            invoice.date_of_purchase = data['date_of_purchase']
-        if 'method' in data:
-            invoice.method = data['method']
-        if 'amount_paid' in data:
-            invoice.amount_paid = data['amount_paid']
-        if 'fees' in data:
-            invoice.fees = data['fees']
-        if 'tax' in data:
-            invoice.tax = data['tax']
-        if 'currency' in data:
-            invoice.currency = data['currency']
-        if 'seller_id' in data:
-            invoice.seller_id = data['seller_id']
-        if 'sale_id' in data:
-            invoice.sale_id = data['sale_id']
-        if 'balance' in data:
-            invoice.balance = data['balance']
-        if 'total_amount' in data:
-            invoice.total_amount = data['total_amount']
-        if 'installments' in data:
-            invoice.installments = data['installments']
-        if 'pending_cleared' in data:
-            invoice.pending_cleared = data['pending_cleared']
-        if 'customer_id' in data:
-            invoice.customer_id = data['customer_id']
-        if 'vehicle_id' in data:
-            invoice.vehicle_id = data['vehicle_id']
-        if 'signature' in data:
-            invoice.signature = data['signature']
-        if 'warranty_info' in data:
-            invoice.warranty_info = data['warranty_info']
-        if 'terms_and_conditions' in data:
-            invoice.terms_and_conditions = data['terms_and_conditions']
-        if 'agreement_details' in data:
-            invoice.agreement_details = data['agreement_details']
-        if 'additional_accessories' in data:
-            invoice.additional_accessories = data['additional_accessories']
-        if 'notes_instructions' in data:
-            invoice.notes_instructions = data['notes_instructions']
-        if 'payment_proof' in data:
-            invoice.payment_proof = data['payment_proof']  
-        
-        # Update other fields similarly
-
-        db.session.commit()
-        return {'message': 'Invoice updated successfully'}, 200
+            db.session.commit()
+            return {'message': 'Report updated successfully'}, 200
+        else:
+            return {'message': 'User has no access rights to update report'}, 401
 
     # DELETE
     @jwt_required()
     def delete(self, id):
         user_id = get_jwt_identity()
 
-        invoice = Invoice.query.filter_by(id=id).first()
-        if not invoice:
-            return {'message': 'Invoice not found'}, 404
+        check_user_role = User.query.filter_by(id=user_id).first()
+        if check_user_role.role == 'super admin' or check_user_role.role == 'admin':
+            report = Report.query.filter_by(id=id).first()
+            if report:
+                db.session.delete(report)
+                db.session.commit()
+                return {'message': 'Report deleted successfully'}, 200
+            else:
+                return {'message': "Report not found"}, 404
+        else:
+            return {'message': 'User has no access rights to delete report'}, 401
 
-        
 
-        db.session.delete(invoice)
+class Receipt(Resource):
+    # POST
+    @jwt_required()
+    def post(self):
+        user_id = get_jwt_identity()
+        data = request.json
+
+        new_receipt = Receipt(
+            user_id=user_id,
+            customer_id=data.get('customer_id'),
+            invoice_id=data.get('invoice_id'),
+            amount_paid=data.get('amount_paid'),
+            time_stamp=datetime.now()
+        )
+
+        db.session.add(new_receipt)
         db.session.commit()
 
-        return {'message': 'Invoice deleted successfully'}, 200
+        db.session.refresh(new_receipt)
+        return make_response(jsonify({'message': 'Receipt created successfully'}), 201)
+
+    # GET
+    @jwt_required()
+    def get(self):
+        receipts = Receipt.query.all()
+        return make_response(jsonify([{
+            'id': receipt.id,
+            'user_id': receipt.user_id,
+            'customer_id': receipt.customer_id,
+            'invoice_id': receipt.invoice_id,
+            'amount_paid': receipt.amount_paid,
+            'time_stamp': receipt.time_stamp
+        } for receipt in receipts]))
+
+
+class Receipt_update(Resource):
+    # PATCH
+    @jwt_required()
+    def patch(self, id):
+        user_id = get_jwt_identity()
+        data = request.json
+
+        receipt = Receipt.query.filter_by(id=id).first()
+        if not receipt:
+            return {'message': 'Receipt not found'}, 404
+
+        if receipt.user_id == user_id:
+            for key, value in data.items():
+                if hasattr(receipt, key):
+                    setattr(receipt, key, value)
+
+            db.session.commit()
+            return {'message': 'Receipt updated successfully'}, 200
+        else:
+            return {'message': 'User does not have permission to update this receipt'}, 401
+
+    # DELETE
+    @jwt_required()
+    def delete(self, id):
+        user_id = get_jwt_identity()
+
+        receipt = Receipt.query.filter_by(id=id).first()
+        if not receipt:
+            return {'message': 'Receipt not found'}, 404
+
+        if receipt.user_id == user_id:
+            db.session.delete(receipt)
+            db.session.commit()
+            return {'message': 'Receipt deleted successfully'}, 200
+        else:
+            return {'message': 'User does not have permission to delete this receipt'}, 401
         
+
+class Notification(Resource):
+    # POST
+    @jwt_required()
+    def post(self):
+        user_id = get_jwt_identity()
+        data = request.json
+
+        new_notification = Notification(
+            user_id=user_id,
+            customer_id=data.get('customer_id'),
+            notification_type=data.get('notification_type'),
+            message=data.get('message'),
+            time_stamp=datetime.now()
+        )
+
+        db.session.add(new_notification)
+        db.session.commit()
+
+        db.session.refresh(new_notification)
+        return make_response(jsonify({'message': 'Notification created successfully'}), 201)
+
+    # GET
+    @jwt_required()
+    def get(self):
+        notifications = Notification.query.all()
+        return make_response(jsonify([{
+            'id': notification.id,
+            'user_id': notification.user_id,
+            'customer_id': notification.customer_id,
+            'notification_type': notification.notification_type,
+            'message': notification.message,
+            'time_stamp': notification.time_stamp
+        } for notification in notifications]))
+
+
+class Notification_update(Resource):
+    # PATCH
+    @jwt_required()
+    def patch(self, id):
+        user_id = get_jwt_identity()
+        data = request.json
+
+        notification = Notification.query.filter_by(id=id).first()
+        if not notification:
+            return {'message': 'Notification not found'}, 404
+
+        if notification.user_id == user_id:
+            for key, value in data.items():
+                if hasattr(notification, key):
+                    setattr(notification, key, value)
+
+            db.session.commit()
+            return {'message': 'Notification updated successfully'}, 200
+        else:
+            return {'message': 'User does not have permission to update this notification'}, 401
+
+    # DELETE
+    @jwt_required()
+    def delete(self, id):
+        user_id = get_jwt_identity()
+
+        notification = Notification.query.filter_by(id=id).first()
+        if not notification:
+            return {'message': 'Notification not found'}, 404
+
+        if notification.user_id == user_id:
+            db.session.delete(notification)
+            db.session.commit()
+            return {'message': 'Notification deleted successfully'}, 200
+        else:
+            return {'message': 'User does not have permission to delete this notification'}, 401
+
+
+
 
 api.add_resource(CheckSession, '/checksession')
 api.add_resource(AllUsers, '/users')
@@ -1214,7 +1298,13 @@ api.add_resource(UpdateDetails, '/updatedetails/<int:customer_id>')
 api.add_resource(DeleteDetails, '/deletedetails/<int:customer_id>')
 api.add_resource(AdminSales, '/sellers')
 api.add_resource(OneSellerAdmin, '/seller/<int:sale_id>')
-api.add_resource(Invoice, '/invoice', '/invoice/<int:id>') # passed them both over here 
+api.add_resource(Report, '/report')
+api.add_resource(Report_update, '/report/<int:id>')
+api.add_resource(Receipt, '/receipt')
+api.add_resource(Receipt_update, '/receipt/<int:id>')
+api.add_resource(Notification, '/notification')
+api.add_resource(Notification_update, '/notification/<int:id>')
+
 
 
 
