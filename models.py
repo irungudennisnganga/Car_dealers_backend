@@ -12,6 +12,7 @@ class User(db.Model, SerializerMixin):
     last_name = db.Column(db.String,nullable=False)
     email = db.Column(db.String,nullable=False )
     image = db.Column(db.String,nullable=False)
+    status = db.Column(db.String,nullable=False)
     role = db.Column(db.String,nullable=False)
     contact = db.Column(db.String, nullable=False)
     _password_hash = db.Column(db.String,nullable=False)

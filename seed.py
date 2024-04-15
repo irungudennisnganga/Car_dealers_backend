@@ -19,13 +19,13 @@ def seed_data():
         password_hash = bcrypt.generate_password_hash('mypassword').decode('utf-8')
         password_hash2 = bcrypt.generate_password_hash('password').decode('utf-8')
 
-        user1 = User(first_name='Dennis', last_name='Irungu', email='irungud220@gmail.com', image='https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcScNc6oZl7o7MuTWxfNXnWIiqzzCRmQg8sjBp59ZBZpFg&s', role='admin', contact=1234567890,_password_hash=password_hash)
-        user3 = User(first_name='dennis', last_name='irungu', email='dennisnganga7148@gmail.com', image='https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcS2bPWPwj6jFqpAFm7q02z4hQ2Uwt4vYEueQzkzpq7dfg&s', role='super admin', contact=345678765, _password_hash=password_hash2)
-        user2 = User(first_name='Maurine', last_name='wambui', email='maurinewambui@gmail.com', image='https://imgv3.fotor.com/images/blog-cover-image/a-pink-barbie-doll-with-a-pink-background.jpg', role='admin', contact=9876543210, _password_hash=password_hash2)
-        user4 = User(first_name='Stanley', last_name='Muiruri', email='stanleywanjau@gmail.com', image='https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcScNc6oZl7o7MuTWxfNXnWIiqzzCRmQg8sjBp59ZBZpFg&s', role='admin', contact=9876567,_password_hash=password_hash)
-        user5 = User(first_name='Beatrice', last_name='Mwangi', email='bbeatricemwangi@gmail.com', image='https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcS2bPWPwj6jFqpAFm7q02z4hQ2Uwt4vYEueQzkzpq7dfg&s', role='seller', contact=2345098, _password_hash=password_hash2)
-        user7 = User(first_name='Samuel', last_name='Mwangi', email='samwelmwangi@gmail.com', image='https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcScNc6oZl7o7MuTWxfNXnWIiqzzCRmQg8sjBp59ZBZpFg&s', role='seller', contact=98765678,_password_hash=password_hash)
-        user8 = User(first_name='James', last_name='Kinyanjui', email='jameskinyanjui@gmail.com', image='https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcS2bPWPwj6jFqpAFm7q02z4hQ2Uwt4vYEueQzkzpq7dfg&s', role='seller', contact=987678, _password_hash=password_hash2)
+        user1 = User(first_name='Dennis', last_name='Irungu',status ="active", email='irungud220@gmail.com', image='https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcScNc6oZl7o7MuTWxfNXnWIiqzzCRmQg8sjBp59ZBZpFg&s', role='admin', contact=1234567890,_password_hash=password_hash)
+        user3 = User(first_name='dennis', last_name='irungu',status ="active" , email='dennisnganga7148@gmail.com', image='https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcS2bPWPwj6jFqpAFm7q02z4hQ2Uwt4vYEueQzkzpq7dfg&s', role='super admin', contact=345678765, _password_hash=password_hash2)
+        user2 = User(first_name='Maurine', last_name='wambui',status ="active" , email='maurinewambui@gmail.com', image='https://imgv3.fotor.com/images/blog-cover-image/a-pink-barbie-doll-with-a-pink-background.jpg', role='admin', contact=9876543210, _password_hash=password_hash2)
+        user4 = User(first_name='Stanley', last_name='Muiruri',status ="active" , email='stanleywanjau@gmail.com', image='https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcScNc6oZl7o7MuTWxfNXnWIiqzzCRmQg8sjBp59ZBZpFg&s', role='admin', contact=9876567,_password_hash=password_hash)
+        user5 = User(first_name='Beatrice', last_name='Mwangi',status ="active" , email='bbeatricemwangi@gmail.com', image='https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcS2bPWPwj6jFqpAFm7q02z4hQ2Uwt4vYEueQzkzpq7dfg&s', role='seller', contact=2345098, _password_hash=password_hash2)
+        user7 = User(first_name='Samuel', last_name='Mwangi',status ="active" , email='samwelmwangi@gmail.com', image='https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcScNc6oZl7o7MuTWxfNXnWIiqzzCRmQg8sjBp59ZBZpFg&s', role='seller', contact=98765678,_password_hash=password_hash)
+        user8 = User(first_name='James', last_name='Kinyanjui',status ="active" , email='jameskinyanjui@gmail.com', image='https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcS2bPWPwj6jFqpAFm7q02z4hQ2Uwt4vYEueQzkzpq7dfg&s', role='seller', contact=987678, _password_hash=password_hash2)
 
 
         db.session.add(user1)
