@@ -1105,24 +1105,37 @@ class Report(Resource):
 
 
         check_user_role = User.query.filter_by(id=user_id).first()
-        data = request.json
+        if check_user_role.role in ['admin', 'super admin']:
+            data = request.get_json()
 
+            company_profit = data.get('company_profit')
+            sales_id = data.get('sales_id')
+            expenses = data.get('expenses')
+            sale_date = data.get('sale_date')
+            customer_id = data.get('customer_id')
+            seller_id = data.get('seller_id')
+            importation_id = data.get('importation_id')
+            
+            if not all([company_profit, sales_id, expenses, sale_date]):
+                return make_response(jsonify({'message': 'Please provide all required data'}), 400)
+
+<<<<<<< HEAD
         if check_user_role.role == 'admin' and check_user_role.status == 'active' or check_user_role.role == 'super admin' and check_user_role.status == 'active':
+=======
+>>>>>>> a715f74 (finalized notification, receipt,report)
             new_report = Report(
-                company_profit=data.get('company_profit'),
-                sales_id=data.get('sales_id'),
-                expenses=data.get('expenses'),
-                inventory_id=data.get('inventory_id'),
-                sale_date=data.get('sale_date'),
-                customer_id=data.get('customer_id'),
-                seller_id=data.get('seller_id'),
-                importation_id=data.get('importation_id')
+                company_profit=company_profit,
+                sales_id=sales_id,
+                expenses=expenses,
+                sale_date=sale_date,
+                customer_id=customer_id,
+                seller_id=seller_id,
+                importation_id=importation_id
             )
 
             db.session.add(new_report)
             db.session.commit()
 
-            db.session.refresh(new_report)  
             return make_response(jsonify({'message': 'Report created successfully'}), 201)
         else:
             return make_response(jsonify({'message': 'User has no access rights to create a report'}), 401)
@@ -1130,18 +1143,28 @@ class Report(Resource):
     # GET
     @jwt_required()
     def get(self):
-        reports = Report.query.all()
-        return make_response(jsonify([{
-            'id': report.id,
-            'company_profit': report.company_profit,
-            'sales_id': report.sales_id,
-            'expenses': report.expenses,
-            'inventory_id': report.inventory_id,
-            'sale_date': report.sale_date,
-            'customer_id': report.customer_id,
-            'seller_id': report.seller_id,
-            'importation_id': report.importation_id
-        } for report in reports]))
+        user_id = get_jwt_identity()
+
+        check_user_role = User.query.filter_by(id=user_id).first()
+
+        if check_user_role.role in ['admin', 'super admin']:
+            reports = Report.query.all()
+            serialized_reports = []
+            for report in reports:
+                serialized_report = {
+                    'id': report.id,
+                    'company_profit': report.company_profit,
+                    'sales_id': report.sales_id,
+                    'expenses': report.expenses,
+                    'sale_date': report.sale_date,
+                    'customer_id': report.customer_id,
+                    'seller_id': report.seller_id,
+                    'importation_id': report.importation_id
+                }
+                serialized_reports.append(serialized_report)
+            return make_response(jsonify(serialized_reports), 200)
+        else:
+            return make_response(jsonify({'message': 'User unauthorized'}), 401)
 
 
 class Report_update(Resource):
@@ -1154,6 +1177,7 @@ class Report_update(Resource):
         if check_user_role.role != 'seller' and  check_user_role.status == 'deactivated':
             return make_response(jsonify({'message': 'Unauthorized - Only sellers can create invoices'}), 401)
 
+<<<<<<< HEAD
         data = request.get_json()
         required_fields = ['date_of_purchase', 'method', 'amount_paid', 'fee', 'tax', 'currency', 'customer_id', 'vehicle_id', 'balance', 'total_amount', 'installments', 'pending_cleared', 'signature', 'warranty', 'terms_and_conditions', 'agreement_details', 'additional_accessories', 'notes_instructions', 'payment_proof']
 
@@ -1293,79 +1317,141 @@ class InvoiceDelete(Resource):
         db.session.delete(invoice)
         db.session.commit()
         return make_response(jsonify({'message': 'Invoice deleted successfully'}), 200)
+=======
+        if not check_user_role.role in ['admin', 'super admin']:
+            return {'message': 'User unauthorized'}, 401
 
+        report = Report.query.filter_by(id=id).first()
+        if not report:
+            return {'message': 'Report not found'}, 404
 
-class Receipt(Resource):
+        data = request.get_json()
+        for key, value in data.items():
+            if hasattr(report, key):
+                setattr(report, key, value)
+
+        db.session.commit()
+        return {'message': 'Report updated successfully'}, 200
+
+    # DELETE
+    @jwt_required()
+    def delete(self, id):
+        user_id = get_jwt_identity()
+        check_user_role = User.query.filter_by(id=user_id).first()
+
+        if not check_user_role.role in ['admin', 'super admin']:
+            return {'message': 'User unauthorized'}, 401
+
+        report = Report.query.filter_by(id=id).first()
+        if not report:
+            return {'message': 'Report not found'}, 404
+
+        db.session.delete(report)
+        db.session.commit()
+        return {'message': 'Report deleted successfully'}, 200
+
+class ReportResource(Resource):
     # POST
     @jwt_required()
     def post(self):
         user_id = get_jwt_identity()
         data = request.json
 
-        new_receipt = Receipt(
+        user = User.query.filter_by(id=user_id).first()
+        if not user:
+            return {'message': 'User not found'}, 404
+
+        if user.role != 'admin' and user.role != 'super admin':
+            return {'message': 'Unauthorized User'}, 401
+
+        new_report = Report(
             user_id=user_id,
-            customer_id=data.get('customer_id'),
-            invoice_id=data.get('invoice_id'),
-            amount_paid=data.get('amount_paid'),
-            time_stamp=datetime.now()
+            report_title=data.get('report_title'),
+            report_description=data.get('report_description'),
+            created_at=datetime.now()
         )
 
-        db.session.add(new_receipt)
+        db.session.add(new_report)
         db.session.commit()
 
-        db.session.refresh(new_receipt)
-        return make_response(jsonify({'message': 'Receipt created successfully'}), 201)
+        db.session.refresh(new_report)
+        return jsonify({'message': 'Report created successfully', 'report_id': new_report.id}), 201
 
     # GET
     @jwt_required()
     def get(self):
-        receipts = Receipt.query.all()
-        return make_response(jsonify([{
-            'id': receipt.id,
-            'user_id': receipt.user_id,
-            'customer_id': receipt.customer_id,
-            'invoice_id': receipt.invoice_id,
-            'amount_paid': receipt.amount_paid,
-            'time_stamp': receipt.time_stamp
-        } for receipt in receipts]))
+        user_id = get_jwt_identity()
 
+        user = User.query.filter_by(id=user_id).first()
+        if not user:
+            return {'message': 'User not found'}, 404
 
-class Receipt_update(Resource):
+        if user.role != 'admin' and user.role != 'super admin':
+            return {'message': 'Unauthorized User'}, 401
+
+        reports = Report.query.all()
+        serialized_reports = [{
+            'id': report.id,
+            'user_id': report.user_id,
+            'report_title': report.report_title,
+            'report_description': report.report_description,
+            'created_at': report.created_at
+        } for report in reports]
+        return jsonify(serialized_reports)
+
+class ReportUpdate(Resource):
     # PATCH
     @jwt_required()
     def patch(self, id):
         user_id = get_jwt_identity()
         data = request.json
 
-        receipt = Receipt.query.filter_by(id=id).first()
-        if not receipt:
-            return {'message': 'Receipt not found'}, 404
+        user = User.query.filter_by(id=user_id).first()
+        if not user:
+            return {'message': 'User not found'}, 404
 
-        if receipt.user_id == user_id:
+        if user.role != 'admin' and user.role != 'super admin':
+            return {'message': 'Unauthorized User'}, 401
+
+        report = Report.query.filter_by(id=id).first()
+        if not report:
+            return {'message': 'Report not found'}, 404
+
+        # Assuming only the creator can update the report
+        if report.user_id == user_id:
             for key, value in data.items():
-                if hasattr(receipt, key):
-                    setattr(receipt, key, value)
+                if hasattr(report, key):
+                    setattr(report, key, value)
 
             db.session.commit()
-            return {'message': 'Receipt updated successfully'}, 200
+            return {'message': 'Report updated successfully'}, 200
         else:
-            return {'message': 'User does not have permission to update this receipt'}, 401
+            return {'message': 'User does not have permission to update this report'}, 401
 
     # DELETE
     @jwt_required()
     def delete(self, id):
         user_id = get_jwt_identity()
 
-        receipt = Receipt.query.filter_by(id=id).first()
-        if not receipt:
-            return {'message': 'Receipt not found'}, 404
+        user = User.query.filter_by(id=user_id).first()
+        if not user:
+            return {'message': 'User not found'}, 404
+>>>>>>> a715f74 (finalized notification, receipt,report)
 
-        if receipt.user_id == user_id:
-            db.session.delete(receipt)
+        if user.role != 'admin' and user.role != 'super admin':
+            return {'message': 'Unauthorized User'}, 401
+
+        report = Report.query.filter_by(id=id).first()
+        if not report:
+            return {'message': 'Report not found'}, 404
+
+        # Assuming only the creator can delete the report
+        if report.user_id == user_id:
+            db.session.delete(report)
             db.session.commit()
-            return {'message': 'Receipt deleted successfully'}, 200
+            return {'message': 'Report deleted successfully'}, 200
         else:
-            return {'message': 'User does not have permission to delete this receipt'}, 401
+            return {'message': 'User does not have permission to delete this report'}, 401
         
 
 class Notification(Resource):
@@ -1392,15 +1478,23 @@ class Notification(Resource):
     # GET
     @jwt_required()
     def get(self):
-        notifications = Notification.query.all()
-        return make_response(jsonify([{
-            'id': notification.id,
-            'user_id': notification.user_id,
-            'customer_id': notification.customer_id,
-            'notification_type': notification.notification_type,
-            'message': notification.message,
-            'time_stamp': notification.time_stamp
-        } for notification in notifications]))
+        user_id = get_jwt_identity()
+
+        check_user_role = User.query.filter_by(id=user_id).first()
+
+        if check_user_role.role == 'admin' or check_user_role.role == 'super admin':
+            notifications = Notification.query.all()
+            return make_response(jsonify([{
+                'id': notification.id,
+                'user_id': notification.user_id,
+                'customer_id': notification.customer_id,
+                'notification_type': notification.notification_type,
+                'message': notification.message,
+                'time_stamp': notification.time_stamp
+            } for notification in notifications]))
+
+        else:
+            return make_response(jsonify({"message":"User unauthorized"}), 401)
 
 
 class Notification_update(Resource):
@@ -1414,15 +1508,16 @@ class Notification_update(Resource):
         if not notification:
             return {'message': 'Notification not found'}, 404
 
-        if notification.user_id == user_id:
-            for key, value in data.items():
-                if hasattr(notification, key):
-                    setattr(notification, key, value)
-
-            db.session.commit()
-            return {'message': 'Notification updated successfully'}, 200
-        else:
+        # Check if the logged-in user is authorized to update this notification
+        if notification.user_id != user_id:
             return {'message': 'User does not have permission to update this notification'}, 401
+
+        for key, value in data.items():
+            if hasattr(notification, key):
+                setattr(notification, key, value)
+
+        db.session.commit()
+        return {'message': 'Notification updated successfully'}, 200
 
     # DELETE
     @jwt_required()
@@ -1433,12 +1528,13 @@ class Notification_update(Resource):
         if not notification:
             return {'message': 'Notification not found'}, 404
 
-        if notification.user_id == user_id:
-            db.session.delete(notification)
-            db.session.commit()
-            return {'message': 'Notification deleted successfully'}, 200
-        else:
+        # Check if the logged-in user is authorized to delete this notification
+        if notification.user_id != user_id:
             return {'message': 'User does not have permission to delete this notification'}, 401
+
+        db.session.delete(notification)
+        db.session.commit()
+        return {'message': 'Notification deleted successfully'}, 200
 
 
 
