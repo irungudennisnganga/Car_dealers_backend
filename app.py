@@ -56,7 +56,7 @@ class Login(Resource):
 
         if check_password_hash(user._password_hash, password):
             access_token = create_access_token(identity=user.id)
-            return make_response(jsonify(access_token=access_token), 200)
+            return make_response(jsonify(access_token=access_token, expires_in=28800), 200)
 
         return make_response(jsonify({"message": "Wrong password"}), 422)
 
@@ -71,8 +71,8 @@ class SignupUser(Resource):
             return make_response(jsonify({'message': 'Unauthorized'}), 401)
 
         data = request.form
-        first_name = data.get('first_name')
-        last_name = data.get('last_name')
+        first_name = data.get('firstname')
+        last_name = data.get('lastname')
         image_file = request.files.get('image')
         contact = data.get('contact')
         email = data.get('email')
@@ -81,7 +81,7 @@ class SignupUser(Resource):
         password = '8Dn@3pQo'
 
         if not all([first_name, last_name, image_file, email, contact, role]):
-            return make_response(jsonify({'errors': ['Missing required data']}), 400)
+            return make_response(jsonify({'error': ['Missing required data']}), 400)
 
         if User.query.filter_by(email=email).first() or User.query.filter_by(contact=contact).first():
             return make_response(jsonify({'message': 'User already exists'}), 400)
