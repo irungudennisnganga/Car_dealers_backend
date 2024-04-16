@@ -35,6 +35,7 @@ class CheckSession(Resource):
             "contact": user.contact,
             "role": user.role,
             "image": user.image,
+            "status":user.status
 
         }
 
@@ -76,6 +77,7 @@ class SignupUser(Resource):
         image_file = request.files.get('image')
         contact = data.get('contact')
         email = data.get('email')
+        status="active",
         role = data.get(
             'role') if check_user_role.role == 'super admin' else 'seller'
         password = '8Dn@3pQo'
@@ -107,6 +109,7 @@ class SignupUser(Resource):
             image=image_upload_result['secure_url'],
             email=email,
             contact=contact,
+            status=status,
             role=role,
             _password_hash=bcrypt.generate_password_hash(
                 password).decode('utf-8')
