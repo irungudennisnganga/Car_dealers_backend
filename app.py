@@ -1,4 +1,4 @@
-from models import User, Inventory, Importation, Customer, GalleryImage, Sale,Invoice
+from models import User, Inventory, Importation, Customer, GalleryImage, Sale
 from config import app, api, db, bcrypt
 from flask_restful import Resource
 from flask import request, jsonify, make_response
@@ -57,7 +57,7 @@ class Login(Resource):
 
         if check_password_hash(user._password_hash, password):
             access_token = create_access_token(identity=user.id)
-            return make_response(jsonify(access_token=access_token, expires_in=28800), 200)
+            return make_response(jsonify(access_token=access_token), 200)
 
         return make_response(jsonify({"message": "Wrong password"}), 422)
 
@@ -68,21 +68,22 @@ class SignupUser(Resource):
         user_id = get_jwt_identity()
         check_user_role = User.query.filter_by(id=user_id).first()
 
-        if check_user_role.role not in ['admin', 'super admin'] and check_user_role.status == 'active':
+        if check_user_role.role not in ['admin', 'super admin']:
             return make_response(jsonify({'message': 'Unauthorized'}), 401)
 
         data = request.form
-        first_name = data.get('firstname')
-        last_name = data.get('lastname')
+        first_name = data.get('first_name')
+        last_name = data.get('last_name')
         image_file = request.files.get('image')
         contact = data.get('contact')
         email = data.get('email')
+        status="active",
         role = data.get(
             'role') if check_user_role.role == 'super admin' else 'seller'
         password = '8Dn@3pQo'
 
         if not all([first_name, last_name, image_file, email, contact, role]):
-            return make_response(jsonify({'error': ['Missing required data']}), 400)
+            return make_response(jsonify({'errors': ['Missing required data']}), 400)
 
         if User.query.filter_by(email=email).first() or User.query.filter_by(contact=contact).first():
             return make_response(jsonify({'message': 'User already exists'}), 400)
@@ -108,8 +109,8 @@ class SignupUser(Resource):
             image=image_upload_result['secure_url'],
             email=email,
             contact=contact,
+            status=status,
             role=role,
-            status="active",
             _password_hash=bcrypt.generate_password_hash(
                 password).decode('utf-8')
         )
@@ -130,7 +131,7 @@ class UpdatePassword(Resource):
         if not user_email or not former_password or not new_password:
             return make_response(jsonify({'message': 'Email, former password, and new password are required.'}), 400)
 
-        user = User.query.filter_by(email=user_email, status='active').first()
+        user = User.query.filter_by(email=user_email).first()
 
         if user is None:
             return make_response(jsonify({'message': 'User not found'}), 404)
@@ -156,7 +157,7 @@ class AllUsers(Resource):
 
         check_user_role = User.query.filter_by(id=user_id).first()
 
-        if check_user_role.role == "admin" and check_user_role.status == 'active':
+        if check_user_role.role == "admin":
 
             user = [{
                 'id': n.id,
@@ -164,11 +165,11 @@ class AllUsers(Resource):
                 'last_name': n.last_name,
                 'email': n.email,
                 'contact': n.contact,
-                "status":n.status
+                'status':n.status
             } for n in User.query.filter_by(role='seller').all()]
 
             return user
-        if check_user_role.role == "super admin" and check_user_role.status == 'active':
+        if check_user_role.role == "super admin":
 
             user = [{
                 'id': n.id,
@@ -177,7 +178,7 @@ class AllUsers(Resource):
                 'email': n.email,
                 'role': n.role,
                 'contact': n.contact,
-                "status":n.status
+                'status':n.status
             } for n in User.query.all()]
 
             return user
@@ -194,9 +195,9 @@ class OneUser(Resource):
 
         check_user_role = User.query.filter_by(id=user_id).first()
         
-        if check_user_role.role == "admin" and check_user_role.status == 'active' or  check_user_role.role == "seller" and check_user_role.status == 'active' :
+        if check_user_role.role == "admin" and check_user_role.status == "active"  or  check_user_role.role == "seller" and check_user_role.status == "active"  :
             user = User.query.filter_by(id=id, role='seller').first()
-        elif check_user_role.role == "super admin" and check_user_role.status == 'active':
+        elif check_user_role.role == "super admin" and check_user_role.status == "active":
             user = User.query.filter_by(id=id).first()
         else:
             return make_response(jsonify({"message": "Un Authorized User"}), 401)
@@ -227,7 +228,7 @@ class OneUser(Resource):
                 "history": sale.history,
                 "discount": sale.discount,
                 "sale_date": sale.sale_date,
-                
+                'status':sale.status,
                 "promotions": sale.promotions,
                 
                 
@@ -250,10 +251,10 @@ class OneUser(Resource):
         data = request.form
 
         # Querying the user by their id
-        if check_user_role.role == 'super admin' and check_user_role.status == 'active':
+        if check_user_role.role == 'super admin' and check_user_role.status == "active":
             user = User.query.filter_by(id=id).first()
 
-        elif check_user_role.role == 'admin' and check_user_role.status == 'active':
+        elif check_user_role.role == 'admin' and check_user_role.status == "active":
             user = User.query.filter_by(id=id, role='seller').first()
 
         
@@ -264,12 +265,10 @@ class OneUser(Resource):
         if not user:
             return make_response(jsonify({"message": "No user to update"}), 401)
 
-        if check_user_role.role == "super admin" and check_user_role.status == 'active':
+        if check_user_role.role == "super admin":
             # Update user attributes if they are provided in the JSON data
             if 'first_name' in data:
                 user.first_name = data.get('first_name')
-            if 'status' in data:
-                user.status = data.get('status')
             if 'last_name' in data:
                 user.last_name = data.get('last_name')
             if 'image' in data:
@@ -303,7 +302,7 @@ class OneUser(Resource):
             # Return a success response
             return make_response(jsonify({'message': 'User updated successfully'}), 200)
 
-        if check_user_role.role == "admin" and check_user_role.status == 'active' or check_user_role.role == "seller" and check_user_role.status == 'active':
+        if check_user_role.role == "admin" and check_user_role.status == "active" or check_user_role.role == "seller" and check_user_role.status == "active":
             # Update user attributes if they are provided in the JSON data
             if 'first_name' in data:
                 user.first_name = data.get('first_name')
@@ -332,8 +331,6 @@ class OneUser(Resource):
             if check_user_role.role == "admin":
                 if 'role' in data:
                     user.role = data.get('role')
-                if 'status' in data:
-                    user.status = data.get('status')
 
             if 'contact' in data:
                 user.contact = data.get('contact')
@@ -354,30 +351,29 @@ class INVENTORY(Resource):
         user_id = get_jwt_identity()
 
         check_user_role = User.query.filter_by(id=user_id).first()
-        if check_user_role.role == 'admin' and check_user_role.status == 'active' or check_user_role.role == 'super admin' and check_user_role.status == 'active':
-            data = request.form
-            image = request.files.get('image')
-            # Changed to getlist to handle multiple files
-            gallery = request.files.getlist('gallery')
+        data = request.form
+        image = request.files.get('image')
+        # Changed to getlist to handle multiple files
+        gallery = request.files.getlist('gallery')
 
-            if image.filename == '' or len(gallery) == 0:
-                return {'error': 'No image selected for upload'}, 400
+        if image.filename == '' or len(gallery) == 0:
+            return {'error': 'No image selected for upload'}, 400
 
-            def allowed_file(filename):
-                return '.' in filename and filename.rsplit('.', 1)[1].lower() in {'png', 'jpg', 'jpeg', 'gif'}
+        def allowed_file(filename):
+            return '.' in filename and filename.rsplit('.', 1)[1].lower() in {'png', 'jpg', 'jpeg', 'gif'}
 
-            if not allowed_file(image.filename) or not all(allowed_file(g.filename) for g in gallery):
-                return {'error': 'Invalid file type. Only images are allowed'}, 400
+        if not allowed_file(image.filename) or not all(allowed_file(g.filename) for g in gallery):
+            return {'error': 'Invalid file type. Only images are allowed'}, 400
 
-            # Upload images to Cloudinary
-            try:
-                image_upload_result = cloudinary.uploader.upload(image)
-                gallery_upload_results = [
-                    cloudinary.uploader.upload(g) for g in gallery]
-            except Exception as e:
-                return {'error': f'Error uploading image: {str(e)}'}, 500
+        # Upload images to Cloudinary
+        try:
+            image_upload_result = cloudinary.uploader.upload(image)
+            gallery_upload_results = [
+                cloudinary.uploader.upload(g) for g in gallery]
+        except Exception as e:
+            return {'error': f'Error uploading image: {str(e)}'}, 500
 
-        
+        if check_user_role.role == 'admin' and check_user_role.status == "active" or check_user_role.role == 'super admin' and check_user_role.status == "active":
             new_inventory_item = Inventory(
                 make=data.get('make'),
                 image=image_upload_result['secure_url'],
@@ -469,7 +465,7 @@ class inventory_update(Resource):
         if not inventory_item:
             return {'message': 'Inventory item not found'}, 404
 
-        if check_user_role.role == 'admin' and check_user_role.status == 'active' or check_user_role.role == 'super admin' and check_user_role.status == 'active' :
+        if check_user_role.role == 'admin' and check_user_role.status == "active" or check_user_role.role == 'super admin' and check_user_role.status == "active":
             data = request.form
             # Handle gallery images
             gallery_images = request.files.getlist('gallery')
@@ -496,7 +492,7 @@ class inventory_update(Resource):
         user_id = get_jwt_identity()
 
         check_user_role = User.query.filter_by(id=user_id).first()
-        if check_user_role.role == 'super admin' and check_user_role.status == 'active' or check_user_role.role == 'admin' and check_user_role.status == 'active':
+        if check_user_role.role == 'super admin' and check_user_role.status == "active" or check_user_role.role == 'admin' and check_user_role.status == "active":
             gallery = GalleryImage.query.filter_by(inventory_id=id).all()
             for image in gallery:
                 db.session.delete(image)
@@ -519,7 +515,7 @@ class Importations(Resource):
 
         check_user_role = User.query.filter_by(id=user_id).first()
 
-        if check_user_role.role == 'super admin' and check_user_role.status == 'active' and check_user_role.status == 'active' or check_user_role.role == 'admin' and check_user_role.status == 'active' or check_user_role.role == 'seller' and check_user_role.status == 'active':
+        if check_user_role.role == 'super admin' and check_user_role.status == "active" or check_user_role.role == 'admin' and check_user_role.status == "active" or check_user_role.role == 'seller' and check_user_role.status == "active":
             importations = Importation.query.all()
             importations_data = []
             for importation in importations:
@@ -553,7 +549,7 @@ class Importations(Resource):
         user_id = get_jwt_identity()
 
         check_user_role = User.query.filter_by(id=user_id).first()
-        if check_user_role.role == 'super admin' and check_user_role.status == 'active' or check_user_role.role == 'admin' and check_user_role.status == 'active':
+        if check_user_role.role == 'super admin' and check_user_role.status == "active" or check_user_role.role == 'admin' and check_user_role.status == "active":
             # Get form data and uploaded file
             data = request.form
             import_document = request.files.get('import_document')
@@ -606,7 +602,7 @@ class UpdateImportation(Resource):
         user_id = get_jwt_identity()
 
         check_user_role = User.query.filter_by(id=user_id).first()
-        if check_user_role.role == 'super admin' and check_user_role.status == 'active' or check_user_role.role == 'admin' and check_user_role.status == 'active':
+        if check_user_role.role == 'super admin' and check_user_role.status == "active" or check_user_role.role == 'admin' and check_user_role.status == "active":
             data = request.form
             importation = Importation.query.get(importation_id)
             doc = request.files.get(
@@ -650,7 +646,7 @@ class UpdateImportation(Resource):
         user_id = get_jwt_identity()
 
         check_user_role = User.query.filter_by(id=user_id).first()
-        if check_user_role.role == 'super admin' and check_user_role.status == 'active' or check_user_role.role == 'admin' and check_user_role.status == 'active':
+        if check_user_role.role == 'super admin' and check_user_role.status == "active" or check_user_role.role == 'admin' and check_user_role.status == "active":
             importation = Importation.query.get(importation_id)
             if not importation:
                 return make_response(jsonify({'message': 'Importation not found'}), 404)
@@ -799,7 +795,7 @@ class SaleResource(Resource):
         user_id = get_jwt_identity()
 
         check_user_role = User.query.filter_by(id=user_id).first()
-        if check_user_role.role == 'seller' and check_user_role.status == 'active':
+        if check_user_role.role == 'seller' and check_user_role.status == "active":
             data = request.get_json()
 
             # commision =data.get('commision')
@@ -846,7 +842,7 @@ class SaleResource(Resource):
 
         check_user_role = User.query.filter_by(id=user_id).first()
 
-        if check_user_role.role == 'seller' and check_user_role.status == 'active':
+        if check_user_role.role == 'seller' and check_user_role.status == "active":
             serialized_sales = []
             for sale in Sale.query.all():
                 customer = Customer.query.filter_by(id=sale.customer_id).first()
@@ -890,7 +886,7 @@ class SaleItemResource(Resource):
 
         check_user_role = User.query.filter_by(id=user_id).first()
 
-        if not check_user_role.role == 'seller' and check_user_role.status == 'deactivated':
+        if not check_user_role.role == 'seller':
             return make_response(jsonify({"message": "Unauthorized"}), 401)
 
         sale = Sale.query.filter_by(id=sale_id).first()
@@ -970,7 +966,7 @@ class AdminSales(Resource):
 
         check_user_role = User.query.filter_by(id=user_id).first()
 
-        if check_user_role.role == 'admin' and check_user_role.status == 'active' or check_user_role.role == 'super admin' and check_user_role.status == 'active':
+        if check_user_role.role == 'admin' and check_user_role.status == "active" or check_user_role.role == 'super admin' and check_user_role.status == "active":
             serialized_sales = []
             for sale in Sale.query.all():
                 customer = Customer.query.filter_by(id=sale.customer_id).first()
@@ -1014,7 +1010,7 @@ class OneSellerAdmin(Resource):
 
         check_user_role = User.query.filter_by(id=user_id).first()
 
-        if check_user_role.role == 'admin' and check_user_role.status == 'active' or check_user_role.role == 'super admin' and check_user_role.status == 'active':
+        if check_user_role.role == 'admin' and check_user_role.status == "active" or check_user_role.role == 'super admin' and check_user_role.status == "active":
             
             sale = Sale.query.filter_by(id=sale_id).first()
             
@@ -1059,70 +1055,37 @@ class OneSellerAdmin(Resource):
 class Report(Resource):
     # POST
     @jwt_required()
-    def get(self):
-        user_id = get_jwt_identity()
-
-        check_user_role = User.query.filter_by(id=user_id).first()
-
-        if check_user_role.role == 'admin' and check_user_role.status == 'active' or check_user_role.role == 'super admin' and check_user_role.status == 'active' or check_user_role.role == 'seller' and check_user_role.status == 'active':
-            invoices = [
-                {
-                    'id': invoice.id,
-                    'date_of_purchase': invoice.date_of_purchase,
-                    'method': invoice.method,
-                    'amount_paid': invoice.amount_paid,
-                    'fee': invoice.fee,
-                    'tax': invoice.tax,
-                    'currency': invoice.currency,
-                    'seller_id': invoice.seller_id,
-                    'customer_id': invoice.customer_id,
-                    'vehicle_id': invoice.vehicle_id,
-                    'balance': invoice.balance,
-                    'total_amount': invoice.total_amount,
-                    'installments': invoice.installments,
-                    'pending_cleared': invoice.pending_cleared,
-                    'signature': invoice.signature,
-                    'warranty': invoice.warranty,
-                    'terms_and_conditions': invoice.terms_and_conditions,
-                    'agreement_details': invoice.agreement_details,
-                    'additional_accessories': invoice.additional_accessories,
-                    'notes_instructions': invoice.notes_instructions,
-                    'payment_proof': invoice.payment_proof,
-                    
-                
-                }
-                for invoice in Invoice.query.all()
-            ]
-            
-            return make_response(jsonify(invoices), 200)
-        else:
-            return make_response(jsonify({"message":"User unauthorized"}), 401)
-    
-    
-    @jwt_required()
     def post(self):
         user_id = get_jwt_identity()
 
-
         check_user_role = User.query.filter_by(id=user_id).first()
-        data = request.json
+        if check_user_role.role in ['admin', 'super admin']:
+            data = request.get_json()
 
-        if check_user_role.role == 'admin' and check_user_role.status == 'active' or check_user_role.role == 'super admin' and check_user_role.status == 'active':
+            company_profit = data.get('company_profit')
+            sales_id = data.get('sales_id')
+            expenses = data.get('expenses')
+            sale_date = data.get('sale_date')
+            customer_id = data.get('customer_id')
+            seller_id = data.get('seller_id')
+            importation_id = data.get('importation_id')
+            
+            if not all([company_profit, sales_id, expenses, sale_date]):
+                return make_response(jsonify({'message': 'Please provide all required data'}), 400)
+
             new_report = Report(
-                company_profit=data.get('company_profit'),
-                sales_id=data.get('sales_id'),
-                expenses=data.get('expenses'),
-                inventory_id=data.get('inventory_id'),
-                sale_date=data.get('sale_date'),
-                customer_id=data.get('customer_id'),
-                seller_id=data.get('seller_id'),
-                importation_id=data.get('importation_id')
+                company_profit=company_profit,
+                sales_id=sales_id,
+                expenses=expenses,
+                sale_date=sale_date,
+                customer_id=customer_id,
+                seller_id=seller_id,
+                importation_id=importation_id
             )
 
             db.session.add(new_report)
             db.session.commit()
 
-            db.session.refresh(new_report)  
             return make_response(jsonify({'message': 'Report created successfully'}), 201)
         else:
             return make_response(jsonify({'message': 'User has no access rights to create a report'}), 401)
@@ -1130,176 +1093,79 @@ class Report(Resource):
     # GET
     @jwt_required()
     def get(self):
-        reports = Report.query.all()
-        return make_response(jsonify([{
-            'id': report.id,
-            'company_profit': report.company_profit,
-            'sales_id': report.sales_id,
-            'expenses': report.expenses,
-            'inventory_id': report.inventory_id,
-            'sale_date': report.sale_date,
-            'customer_id': report.customer_id,
-            'seller_id': report.seller_id,
-            'importation_id': report.importation_id
-        } for report in reports]))
+        user_id = get_jwt_identity()
+
+        check_user_role = User.query.filter_by(id=user_id).first()
+
+        if check_user_role.role in ['admin', 'super admin']:
+            reports = Report.query.all()
+            serialized_reports = []
+            for report in reports:
+                serialized_report = {
+                    'id': report.id,
+                    'company_profit': report.company_profit,
+                    'sales_id': report.sales_id,
+                    'expenses': report.expenses,
+                    'sale_date': report.sale_date,
+                    'customer_id': report.customer_id,
+                    'seller_id': report.seller_id,
+                    'importation_id': report.importation_id
+                }
+                serialized_reports.append(serialized_report)
+            return make_response(jsonify(serialized_reports), 200)
+        else:
+            return make_response(jsonify({'message': 'User unauthorized'}), 401)
 
 
 class Report_update(Resource):
     # PATCH
     @jwt_required()
-    def patch(self):
-        user_id =get_jwt_identity()
-        check_user_role = User.query.filter_by(id=user_id).first()
-        
-        if check_user_role.role != 'seller' and  check_user_role.status == 'deactivated':
-            return make_response(jsonify({'message': 'Unauthorized - Only sellers can create invoices'}), 401)
-
-        data = request.get_json()
-        required_fields = ['date_of_purchase', 'method', 'amount_paid', 'fee', 'tax', 'currency', 'customer_id', 'vehicle_id', 'balance', 'total_amount', 'installments', 'pending_cleared', 'signature', 'warranty', 'terms_and_conditions', 'agreement_details', 'additional_accessories', 'notes_instructions', 'payment_proof']
-
-        # Check if all required fields are present in the request data
-        if all(field in data for field in required_fields):
-            try:
-                new_invoice = Invoice(
-                    date_of_purchase=datetime.datetime.strptime(data['date_of_purchase'], "%Y-%m-%d"),
-                    method=data['method'],
-                    amount_paid=data['amount_paid'],
-                    fee=data['fee'],
-                    tax=data['tax'],
-                    currency=data['currency'],
-                    seller_id=user_id,  
-                    customer_id=data['customer_id'],
-                    vehicle_id=data['vehicle_id'],
-                    balance=data['balance'],
-                    total_amount=data['total_amount'],
-                    installments=data['installments'],
-                    pending_cleared=data['pending_cleared'],
-                    signature=data['signature'],
-                    warranty=data['warranty'],
-                    terms_and_conditions=data['terms_and_conditions'],
-                    agreement_details=data['agreement_details'],
-                    additional_accessories=data['additional_accessories'],
-                    notes_instructions=data['notes_instructions'],
-                    payment_proof=data['payment_proof'],
-                    created_at=datetime.datetime.now(),
-                    updated_at=datetime.datetime.now()
-                )
-                db.session.add(new_invoice)
-                db.session.commit()
-                return make_response(jsonify({'message': 'Invoice created successfully', 'invoice_id': new_invoice.id}), 201)
-            except Exception as e:
-                return make_response(jsonify({'message': 'Failed to create invoice', 'error': str(e)}), 500)
-        else:
-            return make_response(jsonify({'message': 'Missing required fields'}), 400)
-
-
-class InvoiceCreate(Resource):
-    @jwt_required()
-    def post(self):
+    def patch(self, id):
         user_id = get_jwt_identity()
-        current_user = User.query.get(user_id)
+        check_user_role = User.query.filter_by(id=user_id).first()
 
-        if current_user.role != 'seller':
-            return make_response(jsonify({'message': 'Unauthorized - Only sellers can create invoices'}), 403)
+        if not check_user_role.role in ['admin', 'super admin']:
+            return {'message': 'User unauthorized'}, 401
 
-        data = request.get_json()
-        try:
-            new_invoice = Invoice(
-                date_of_purchase=datetime.datetime.strptime(data['date_of_purchase'], "%Y-%m-%d"),
-                method=data['method'],
-                amount_paid=data['amount_paid'],
-                fee=data['fee'],
-                tax=data['tax'],
-                currency=data['currency'],
-                seller_id=user_id,  
-                customer_id=data['customer_id'],
-                vehicle_id=data['vehicle_id'],
-                balance=data['balance'],
-                total_amount=data['total_amount'],
-                installments=data['installments'],
-                pending_cleared=data['pending_cleared'],
-                signature=data['signature'],
-                warranty=data['warranty'],
-                terms_and_conditions=data['terms_and_conditions'],
-                agreement_details=data['agreement_details'],
-                additional_accessories=data['additional_accessories'],
-                notes_instructions=data['notes_instructions'],
-                payment_proof=data['payment_proof'],
-                created_at=datetime.datetime.now(),
-                updated_at=datetime.datetime.now()
-            )
-            db.session.add(new_invoice)
-            db.session.commit()
-            return make_response(jsonify({'message': 'Invoice created successfully', 'invoice_id': new_invoice.id}), 201)
-        except Exception as e:
-            return make_response(jsonify({'message': 'Failed to create invoice', 'error': str(e)}), 500)
-
-class InvoiceGet(Resource):
-    @jwt_required()
-    def get(self, invoice_id):
-        invoice = Invoice.query.get(invoice_id)
-        if invoice:
-            invoice_data = {
-                'id': invoice.id,
-                'date_of_purchase': invoice.date_of_purchase,
-                'method': invoice.method,
-                'amount_paid': invoice.amount_paid,
-                'fee': invoice.fee,
-                'tax': invoice.tax,
-                'currency': invoice.currency,
-                'seller_id': invoice.seller_id,
-                'customer_id': invoice.customer_id,
-                'vehicle_id': invoice.vehicle_id,
-                'balance': invoice.balance,
-                'total_amount': invoice.total_amount,
-                'installments': invoice.installments,
-                'pending_cleared': invoice.pending_cleared,
-                'signature': invoice.signature,
-                'warranty': invoice.warranty,
-                'terms_and_conditions': invoice.terms_and_conditions,
-                'agreement_details': invoice.agreement_details,
-                'additional_accessories': invoice.additional_accessories,
-                'notes_instructions': invoice.notes_instructions,
-                'payment_proof': invoice.payment_proof,
-                'created_at': invoice.created_at.isoformat() if invoice.created_at else None,
-                'updated_at': invoice.updated_at.isoformat() if invoice.updated_at else None,
-
-            }
-            return jsonify(invoice_data)
-        else:
-            return make_response(jsonify({'message': 'Invoice not found'}), 404)
-class InvoiceUpdate(Resource):
-    @jwt_required()
-    def put(self, invoice_id):
-        invoice = Invoice.query.get(invoice_id)
-        if not invoice:
-            return make_response(jsonify({'message': 'Invoice not found'}), 404)
+        report = Report.query.filter_by(id=id).first()
+        if not report:
+            return {'message': 'Report not found'}, 404
 
         data = request.get_json()
         for key, value in data.items():
-            if hasattr(invoice, key):
-                setattr(invoice, key, value)
+            if hasattr(report, key):
+                setattr(report, key, value)
 
         db.session.commit()
-        return make_response(jsonify({'message': 'Invoice updated successfully'}), 200)
+        return {'message': 'Report updated successfully'}, 200
 
-class InvoiceDelete(Resource):
+    # DELETE
     @jwt_required()
-    def delete(self, invoice_id):
-        invoice = Invoice.query.get(invoice_id)
-        if not invoice:
-            return make_response(jsonify({'message': 'Invoice not found'}), 404)
+    def delete(self, id):
+        user_id = get_jwt_identity()
+        check_user_role = User.query.filter_by(id=user_id).first()
 
-        db.session.delete(invoice)
+        if not check_user_role.role in ['admin', 'super admin']:
+            return {'message': 'User unauthorized'}, 401
+
+        report = Report.query.filter_by(id=id).first()
+        if not report:
+            return {'message': 'Report not found'}, 404
+
+        db.session.delete(report)
         db.session.commit()
-        return make_response(jsonify({'message': 'Invoice deleted successfully'}), 200)
-
+        return {'message': 'Report deleted successfully'}, 200
 
 class Receipt(Resource):
     # POST
     @jwt_required()
     def post(self):
         user_id = get_jwt_identity()
+
+        user = User.query.filter_by(id=user_id).first()
+        if not user or user.role not in ['admin', 'super admin']:
+            return {'message': 'User unauthorized'}, 401
+
         data = request.json
 
         new_receipt = Receipt(
@@ -1319,6 +1185,12 @@ class Receipt(Resource):
     # GET
     @jwt_required()
     def get(self):
+        user_id = get_jwt_identity()
+
+        user = User.query.filter_by(id=user_id).first()
+        if not user or user.role not in ['admin', 'super admin']:
+            return {'message': 'User unauthorized'}, 401
+
         receipts = Receipt.query.all()
         return make_response(jsonify([{
             'id': receipt.id,
@@ -1335,6 +1207,11 @@ class Receipt_update(Resource):
     @jwt_required()
     def patch(self, id):
         user_id = get_jwt_identity()
+
+        user = User.query.filter_by(id=user_id).first()
+        if not user or user.role not in ['admin', 'super admin']:
+            return {'message': 'User unauthorized'}, 401
+
         data = request.json
 
         receipt = Receipt.query.filter_by(id=id).first()
@@ -1356,6 +1233,10 @@ class Receipt_update(Resource):
     def delete(self, id):
         user_id = get_jwt_identity()
 
+        user = User.query.filter_by(id=user_id).first()
+        if not user or user.role not in ['admin', 'super admin']:
+            return {'message': 'User unauthorized'}, 401
+
         receipt = Receipt.query.filter_by(id=id).first()
         if not receipt:
             return {'message': 'Receipt not found'}, 404
@@ -1373,6 +1254,11 @@ class Notification(Resource):
     @jwt_required()
     def post(self):
         user_id = get_jwt_identity()
+
+        user = User.query.filter_by(id=user_id).first()
+        if not user or user.role not in ['admin', 'super admin']:
+            return {'message': 'User unauthorized'}, 401
+
         data = request.json
 
         new_notification = Notification(
@@ -1392,6 +1278,12 @@ class Notification(Resource):
     # GET
     @jwt_required()
     def get(self):
+        user_id = get_jwt_identity()
+
+        user = User.query.filter_by(id=user_id).first()
+        if not user or user.role not in ['admin', 'super admin']:
+            return {'message': 'User unauthorized'}, 401
+
         notifications = Notification.query.all()
         return make_response(jsonify([{
             'id': notification.id,
@@ -1408,6 +1300,11 @@ class Notification_update(Resource):
     @jwt_required()
     def patch(self, id):
         user_id = get_jwt_identity()
+
+        user = User.query.filter_by(id=user_id).first()
+        if not user or user.role not in ['admin', 'super admin']:
+            return {'message': 'User unauthorized'}, 401
+
         data = request.json
 
         notification = Notification.query.filter_by(id=id).first()
@@ -1429,6 +1326,10 @@ class Notification_update(Resource):
     def delete(self, id):
         user_id = get_jwt_identity()
 
+        user = User.query.filter_by(id=user_id).first()
+        if not user or user.role not in ['admin', 'super admin']:
+            return {'message': 'User unauthorized'}, 401
+
         notification = Notification.query.filter_by(id=id).first()
         if not notification:
             return {'message': 'Notification not found'}, 404
@@ -1439,6 +1340,7 @@ class Notification_update(Resource):
             return {'message': 'Notification deleted successfully'}, 200
         else:
             return {'message': 'User does not have permission to delete this notification'}, 401
+
 
 
 
@@ -1466,10 +1368,7 @@ api.add_resource(Receipt, '/receipt')
 api.add_resource(Receipt_update, '/receipt/<int:id>')
 api.add_resource(Notification, '/notification')
 api.add_resource(Notification_update, '/notification/<int:id>')
-api.add_resource(InvoiceCreate, '/invoice')
-api.add_resource(InvoiceGet, '/invoice/<int:invoice_id>')
-api.add_resource(InvoiceUpdate, '/updateinvoice/<int:invoice_id>')
-api.add_resource(InvoiceDelete, '/deleteinvoice/<int:invoice_id>')
+
 
 
 
