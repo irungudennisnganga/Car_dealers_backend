@@ -165,6 +165,7 @@ class AllUsers(Resource):
                 'last_name': n.last_name,
                 'email': n.email,
                 'contact': n.contact,
+                'status':n.status
             } for n in User.query.filter_by(role='seller').all()]
 
             return user
@@ -177,6 +178,7 @@ class AllUsers(Resource):
                 'email': n.email,
                 'role': n.role,
                 'contact': n.contact,
+                'status':n.status
             } for n in User.query.all()]
 
             return user
@@ -193,9 +195,9 @@ class OneUser(Resource):
 
         check_user_role = User.query.filter_by(id=user_id).first()
         
-        if check_user_role.role == "admin" or  check_user_role.role == "seller"  :
+        if check_user_role.role == "admin" and check_user_role.status == "active"  or  check_user_role.role == "seller" and check_user_role.status == "active"  :
             user = User.query.filter_by(id=id, role='seller').first()
-        elif check_user_role.role == "super admin":
+        elif check_user_role.role == "super admin" and check_user_role.status == "active":
             user = User.query.filter_by(id=id).first()
         else:
             return make_response(jsonify({"message": "Un Authorized User"}), 401)
@@ -226,7 +228,7 @@ class OneUser(Resource):
                 "history": sale.history,
                 "discount": sale.discount,
                 "sale_date": sale.sale_date,
-                
+                'status':sale.status,
                 "promotions": sale.promotions,
                 
                 
@@ -249,10 +251,10 @@ class OneUser(Resource):
         data = request.form
 
         # Querying the user by their id
-        if check_user_role.role == 'super admin':
+        if check_user_role.role == 'super admin' and check_user_role.status == "active":
             user = User.query.filter_by(id=id).first()
 
-        elif check_user_role.role == 'admin':
+        elif check_user_role.role == 'admin' and check_user_role.status == "active":
             user = User.query.filter_by(id=id, role='seller').first()
 
         
@@ -300,7 +302,7 @@ class OneUser(Resource):
             # Return a success response
             return make_response(jsonify({'message': 'User updated successfully'}), 200)
 
-        if check_user_role.role == "admin" or check_user_role.role == "seller":
+        if check_user_role.role == "admin" and check_user_role.status == "active" or check_user_role.role == "seller" and check_user_role.status == "active":
             # Update user attributes if they are provided in the JSON data
             if 'first_name' in data:
                 user.first_name = data.get('first_name')
@@ -371,7 +373,7 @@ class INVENTORY(Resource):
         except Exception as e:
             return {'error': f'Error uploading image: {str(e)}'}, 500
 
-        if check_user_role.role == 'admin' or check_user_role.role == 'super admin':
+        if check_user_role.role == 'admin' and check_user_role.status == "active" or check_user_role.role == 'super admin' and check_user_role.status == "active":
             new_inventory_item = Inventory(
                 make=data.get('make'),
                 image=image_upload_result['secure_url'],
@@ -463,7 +465,7 @@ class inventory_update(Resource):
         if not inventory_item:
             return {'message': 'Inventory item not found'}, 404
 
-        if check_user_role.role == 'admin' or check_user_role.role == 'super admin':
+        if check_user_role.role == 'admin' and check_user_role.status == "active" or check_user_role.role == 'super admin' and check_user_role.status == "active":
             data = request.form
             # Handle gallery images
             gallery_images = request.files.getlist('gallery')
@@ -490,7 +492,7 @@ class inventory_update(Resource):
         user_id = get_jwt_identity()
 
         check_user_role = User.query.filter_by(id=user_id).first()
-        if check_user_role.role == 'super admin' or check_user_role.role == 'admin':
+        if check_user_role.role == 'super admin' and check_user_role.status == "active" or check_user_role.role == 'admin' and check_user_role.status == "active":
             gallery = GalleryImage.query.filter_by(inventory_id=id).all()
             for image in gallery:
                 db.session.delete(image)
@@ -513,7 +515,7 @@ class Importations(Resource):
 
         check_user_role = User.query.filter_by(id=user_id).first()
 
-        if check_user_role.role == 'super admin' or check_user_role.role == 'admin' or check_user_role.role == 'seller':
+        if check_user_role.role == 'super admin' and check_user_role.status == "active" or check_user_role.role == 'admin' and check_user_role.status == "active" or check_user_role.role == 'seller' and check_user_role.status == "active":
             importations = Importation.query.all()
             importations_data = []
             for importation in importations:
@@ -547,7 +549,7 @@ class Importations(Resource):
         user_id = get_jwt_identity()
 
         check_user_role = User.query.filter_by(id=user_id).first()
-        if check_user_role.role == 'super admin' or check_user_role.role == 'admin':
+        if check_user_role.role == 'super admin' and check_user_role.status == "active" or check_user_role.role == 'admin' and check_user_role.status == "active":
             # Get form data and uploaded file
             data = request.form
             import_document = request.files.get('import_document')
@@ -600,7 +602,7 @@ class UpdateImportation(Resource):
         user_id = get_jwt_identity()
 
         check_user_role = User.query.filter_by(id=user_id).first()
-        if check_user_role.role == 'super admin' or check_user_role.role == 'admin':
+        if check_user_role.role == 'super admin' and check_user_role.status == "active" or check_user_role.role == 'admin' and check_user_role.status == "active":
             data = request.form
             importation = Importation.query.get(importation_id)
             doc = request.files.get(
@@ -644,7 +646,7 @@ class UpdateImportation(Resource):
         user_id = get_jwt_identity()
 
         check_user_role = User.query.filter_by(id=user_id).first()
-        if check_user_role.role == 'super admin' or check_user_role.role == 'admin':
+        if check_user_role.role == 'super admin' and check_user_role.status == "active" or check_user_role.role == 'admin' and check_user_role.status == "active":
             importation = Importation.query.get(importation_id)
             if not importation:
                 return make_response(jsonify({'message': 'Importation not found'}), 404)
@@ -793,7 +795,7 @@ class SaleResource(Resource):
         user_id = get_jwt_identity()
 
         check_user_role = User.query.filter_by(id=user_id).first()
-        if check_user_role.role == 'seller':
+        if check_user_role.role == 'seller' and check_user_role.status == "active":
             data = request.get_json()
 
             # commision =data.get('commision')
@@ -840,7 +842,7 @@ class SaleResource(Resource):
 
         check_user_role = User.query.filter_by(id=user_id).first()
 
-        if check_user_role.role == 'seller':
+        if check_user_role.role == 'seller' and check_user_role.status == "active":
             serialized_sales = []
             for sale in Sale.query.all():
                 customer = Customer.query.filter_by(id=sale.customer_id).first()
@@ -964,7 +966,7 @@ class AdminSales(Resource):
 
         check_user_role = User.query.filter_by(id=user_id).first()
 
-        if check_user_role.role == 'admin' or check_user_role.role == 'super admin':
+        if check_user_role.role == 'admin' and check_user_role.status == "active" or check_user_role.role == 'super admin' and check_user_role.status == "active":
             serialized_sales = []
             for sale in Sale.query.all():
                 customer = Customer.query.filter_by(id=sale.customer_id).first()
@@ -1008,7 +1010,7 @@ class OneSellerAdmin(Resource):
 
         check_user_role = User.query.filter_by(id=user_id).first()
 
-        if check_user_role.role == 'admin' or check_user_role.role == 'super admin':
+        if check_user_role.role == 'admin' and check_user_role.status == "active" or check_user_role.role == 'super admin' and check_user_role.status == "active":
             
             sale = Sale.query.filter_by(id=sale_id).first()
             
