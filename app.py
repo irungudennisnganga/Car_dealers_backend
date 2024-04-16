@@ -1044,7 +1044,8 @@ class OneSellerAdmin(Resource):
                 },
                 "inventory_id": {
                                  "id":inventory.id,
-                                 "name":inventory.make
+                                 "name":inventory.make,
+                                 "image":inventory.image
                                  },
                 "promotions": sale.promotions,
             }
