@@ -96,35 +96,7 @@ class Inventory(db.Model, SerializerMixin):
     gallery = db.relationship('GalleryImage', backref='inventories')
 
     
-    def serializer(self):
-        return{
-            'id':self.id,
-            'make':self.make,
-            'price':self.price,
-            'currency':self.currency,
-            'image':self.image,
-            'model':self.model,
-            'year':self.year,
-            'VIN':self.VIN,
-            'color':self.color,
-            'mileage':self.mileage,
-            'body_style':self.body_style,
-            'transmission':self.transmission,
-            'fuel_type':self.fuel_type,
-            'engine_size':self.engine_size,
-            'drive_type':self.drive_type,
-            'trim_level':self.trim_level,
-            'gallery':self.gallery,
-            'condition':self.condition,
-            'availability':self.availability,
-            'cylinder':self.cylinder,
-            'doors':self.doors,
-            'features':self.features,
-            'stock_number':self.stock_number,
-            'purchase_cost':self.purchase_cost,
-            'profit':self.profit,
-            'user_id':self.user_id
-        }
+    
 
 class Importation(db.Model, SerializerMixin):
     __tablename__ ='importations'
@@ -140,17 +112,7 @@ class Importation(db.Model, SerializerMixin):
     created_at = db.Column(db.DateTime, server_default=db.func.now())
     updated_at = db.Column(db.DateTime, onupdate=db.func.now())
 
-    def serializer(self):
-        return{
-            'id':self.id,
-            'country_of_origin':self.country_of_origin,
-            'transport_fee':self.transport_fee,
-            'currency':self.currency,
-            'import_duty':self.import_duty,
-            'import_date':self.import_date,
-            'import_document':self.import_document,
-            'car_id':self.car_id
-        }
+    
 class Customer(db.Model, SerializerMixin):
     __tablename__ = 'customers'
 
@@ -171,16 +133,7 @@ class Customer(db.Model, SerializerMixin):
     notification = db.relationship("Notification", backref='customer')
     receipt = db.relationship("Receipt", backref='customer')
 
-    def serializer(self):
-        return{
-            'id':self.id,
-            'first_name':self.first_name,
-            'last_name':self.last_name,
-            'email':self.email,
-            'address':self.address,
-            'phone_number':self.phone_number,
-            'image':self.image
-        }
+    
 class Sale(db.Model, SerializerMixin):
     __tablename__ = 'sales'
     
@@ -194,22 +147,12 @@ class Sale(db.Model, SerializerMixin):
     seller_id = db.Column(db.String, db.ForeignKey("user.id"), nullable=False)
     inventory_id = db.Column(db.String, db.ForeignKey("inventories.id"), nullable=False)
     promotions = db.Column(db.String, nullable=False)
+    created_at = db.Column(db.DateTime, server_default=db.func.now())
+    updated_at = db.Column(db.DateTime, onupdate=db.func.now())
     
     invoice = db.relationship("Invoice", backref='sales')
 
-    def serializer(self):
-        return{
-            'id':self.id,
-            'commision':self.commision,
-            'status':self.status,
-            'history':self.history,
-            'discount':self.discount,
-            'sale_date':self.sale_date,
-            'customer_id':self.customer_id,
-            'seller_id':self.seller_id,
-            'inventory_id':self.inventory_id,
-            'promotions':self.promotions
-        }
+    
 class Invoice(db.Model, SerializerMixin):
     __tablename__ ='invoices'
 
@@ -238,32 +181,7 @@ class Invoice(db.Model, SerializerMixin):
     created_at = db.Column(db.DateTime, server_default=db.func.now())
     updated_at = db.Column(db.DateTime, onupdate=db.func.now())
 
-    def serializer(self):
-        return{
-            'id':self.id,
-            'date_of_purchase':self.date_of_purchase,
-            'method':self.method,
-            'amount_paid':self.amount_paid,
-            'fee':self.fee,
-            'tax':self.tax,
-            'customer_id':self.customer_id,
-            'seller_id':self.seller_id,
-            'currency':self.currency,
-            'sale_id':self.sale_id,
-            'balance':self.balance,
-            'total_amount':self.total_amount,
-            'installments':self.installments,
-            'pending_cleared':self.pending_cleared,
-            'vehicle_id':self.vehicle_id,
-            'signature':self.signature,
-            'warranty':self.warranty,
-            'terms_and_conditions':self.terms_and_conditions,
-            'agreement_details':self.agreement_details,
-            'additional_accessories':self.additional_accessories,
-            'notes_instructions':self.notes_instructions,
-            'payment_proof':self.payment_proof
-            
-        }
+    
 class Report(db.Model, SerializerMixin):
     __tablename__ ='reports'
     
@@ -276,20 +194,10 @@ class Report(db.Model, SerializerMixin):
     customer_id = db.Column(db.Integer, db.ForeignKey("customers.id"), nullable=False)
     seller_id = db.Column(db.Integer, db.ForeignKey("user.id"), nullable=False)
     importation_id = db.Column(db.Integer, nullable=False)
+    created_at = db.Column(db.DateTime, server_default=db.func.now())
+    updated_at = db.Column(db.DateTime, onupdate=db.func.now())
 
-    def serializer(self):
-        return{
-            'id':self.id,
-            'company_profit':self.company_profit,
-            'sale_id':self.sale_id,
-            'expenses':self.expenses,
-            'importation_id':self.importation_id,
-            'sale_date':self.sale_date,
-            'customer_id':self.customer_id,
-            'seller_id':self.seller_id,
-            'inventory_id':self.inventory_id
-            
-        }
+    
 class Notification(db.Model, SerializerMixin):
     __tablename__ ='notifications'
 
@@ -298,16 +206,10 @@ class Notification(db.Model, SerializerMixin):
     customer_id = db.Column(db.Integer, db.ForeignKey("customers.id"), nullable=False)
     message = db.Column(db.String, nullable=False)
     notification_type = db.Column(db.String, nullable=False)
+    created_at = db.Column(db.DateTime, server_default=db.func.now())
+    updated_at = db.Column(db.DateTime, onupdate=db.func.now())
 
-    def serializer(self):
-        return{
-            'id':self.id,
-            'user_id':self.user_id,
-            'message':self.message,
-            'notification_type':self.notification_type,
-            'customer_id':self.customer_id,
-            
-        }
+    
 class Receipt(db.Model, SerializerMixin):
     __tablename__ ='receipts'
 
@@ -317,19 +219,11 @@ class Receipt(db.Model, SerializerMixin):
     invoice_id = db.Column(db.Integer, nullable=False)
     amount_paid = db.Column(db.Integer, nullable=False)
     commission = db.Column(db.Integer, nullable=False)
-    time_stamp = db.Column(db.DateTime, server_default=db.func.now())
+    # time_stamp = db.Column(db.DateTime, server_default=db.func.now())
+    created_at = db.Column(db.DateTime, server_default=db.func.now())
+    updated_at = db.Column(db.DateTime, onupdate=db.func.now())
 
-    def serializer(self):
-        return{
-            'id':self.id,
-            'user_id':self.user_id,
-            'invoice_id':self.invoice_id,
-            'amount_paid':self.amount_paid,
-            'customer_id':self.customer_id,
-            'commission':self.commission,
-            'time_stamp':self.time_stamp
-            
-        }
+    
         
 class GalleryImage(db.Model,SerializerMixin):
     __tablename__ = 'gallery_image'
@@ -337,16 +231,12 @@ class GalleryImage(db.Model,SerializerMixin):
     id = db.Column(db.Integer, primary_key=True)
     url = db.Column(db.String(255), nullable=False)
     inventory_id = db.Column(db.Integer, db.ForeignKey("inventories.id"))
+    created_at = db.Column(db.DateTime, server_default=db.func.now())
+    updated_at = db.Column(db.DateTime, onupdate=db.func.now())
     
 
     def __init__(self, url, inventory_id):
         self.url = url
         self.inventory_id = inventory_id
         
-    def serializer(self):
-        return{
-            'id':self.id,
-            'url':self.url,
-            'inventory_id':self.inventory_id,
-            
-        }
+    
