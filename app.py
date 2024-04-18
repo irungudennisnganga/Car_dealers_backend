@@ -8,6 +8,7 @@ import cloudinary
 import cloudinary.uploader
 import cloudinary.api
 from datetime import datetime
+from collections import defaultdict
 
 
 cloudinary.config(
@@ -879,85 +880,68 @@ class SaleResource(Resource):
             return make_response(jsonify({"message":"User unauthorized"}), 401)
 
 class SaleItemResource(Resource):
-    # GET
-    @jwt_required()
-    def get(self, sale_id):
-        user_id = get_jwt_identity()
-
-        check_user_role = User.query.filter_by(id=user_id).first()
-
-        if not check_user_role.role == 'seller':
-            return make_response(jsonify({"message": "Unauthorized"}), 401)
-
-        sale = Sale.query.filter_by(id=sale_id).first()
-        
-        if not sale:
-            return make_response(jsonify({"message": "Sale not found"}), 404)
-
-        customer = Customer.query.filter_by(id=sale.customer_id).first()
-        seller = User.query.filter_by(id=sale.seller_id).first()
-        inventory =Inventory.query.filter_by(id =sale.inventory_id).first()
-
-        if not customer or not seller:
-            return make_response(jsonify({"message": "Customer or seller not found for this sale"}), 404)
-
-        one_sale = {
-            "commision": sale.commision,
-            "status": sale.status,
-            "history": sale.history,
-            "discount": sale.discount,
-            "sale_date": sale.sale_date,
-            "customer": {
-                "id": customer.id,
-                "Names": f'{customer.first_name} {customer.last_name}',
-                "email": customer.email,
-                
-            },
-            "seller": {
-                "id": seller.id,
-                "Names": f'{seller.first_name} {seller.last_name}',
-                "email": seller.email,
-                
-            },
-            "inventory_id": {
-                                 "id":inventory.id,
-                                 "name":inventory.make
-                                 },
-            "promotions": sale.promotions,
-        }
-        return make_response(jsonify(one_sale), 200)
-
     # PUT
     @jwt_required()
     def put(self, sale_id):
         user_id = get_jwt_identity()
 
         # Get the sale object
-        sale = Sale.query.filter_by(id=sale_id).first()
-
-        # Check if the logged-in user is the seller who created the sale
-        # if sale.seller_id != user_id:
-        #     return make_response(jsonify({"message": "Unauthorized"}), 401)
-
-        # Get the request data
-        data = request.get_json()
-
+        check_user_role = User.query.filter_by(id=user_id).first()
         
-        if 'status' in data:
-            sale.status = data['status']
-        
-        # Commit the changes to the database
-        db.session.commit()
+        if check_user_role.role == 'seller' and check_user_role.status == 'active':
+            sale = Sale.query.filter_by(id=sale_id, seller_id=user_id).first()
 
-        return make_response(jsonify({'message': 'Sale updated successfully'}))
+            # Check if the logged-in user is the seller who created the sale
+            # if sale.seller_id != user_id:
+            #     return make_response(jsonify({"message": "Unauthorized"}), 401)
+            if not sale:
+                 return make_response(jsonify({'message': 'Sale not found'}), 400)
+            # Get the request data
+            data = request.get_json()
+
+            
+            if 'status' in data:
+                sale.status = data['status']
+            
+            # Commit the changes to the database
+            db.session.commit()
+
+            return make_response(jsonify({'message': 'Sale updated successfully'}), 201)
 
     # DELETE
+    # who should be deleting a sale ?
     def delete(self, sale_id):
         sale = Sale.query.get_or_404(sale_id)
         db.session.delete(sale)
         db.session.commit()
 
-        return jsonify({'message': 'Sale deleted successfully'})
+        return jsonify({'message': 'Sale deleted successfully'}, 201)
+# class GeneralSale(Resource):
+#     @jwt_required
+#     def get(self):
+#         user_id = get_jwt_identity()
+
+#         check_user_role = User.query.filter_by(id=user_id).first()
+
+#         if (check_user_role.role == 'admin' and check_user_role.status == "active") or (check_user_role.role == 'super admin' and check_user_role.status == "active"):
+#             serialized_sales = []
+#             for sale in Sale.query.all():
+#                 customer = Customer.query.filter_by(id=sale.customer_id).first()
+#                 seller = User.query.filter_by(id=sale.seller_id).first()
+#                 inventory = Inventory.query.filter_by(id=sale.inventory_id).first()
+#                 serialized_sale = {
+#                     # "id": sale.id,
+#                     "customer": len(customer),
+#                     "seller": len(seller),
+#                     "inventory_id": len(inventory),
+                    
+#                 }
+#                 serialized_sales.append(serialized_sale)
+#             return make_response(serialized_sales)  # Use serialized_sales instead of serialized_sale
+        
+#         else:
+#             return make_response(({"message":"User unauthorized"}))
+            
     
 class AdminSales(Resource):
     @jwt_required()
@@ -1000,6 +984,8 @@ class AdminSales(Resource):
                 }
                 serialized_sales.append(serialized_sale)
             return make_response(jsonify(serialized_sales), 200)
+        
+            
         else:
             return make_response(jsonify({"message":"User unauthorized"}), 401)
         
@@ -1047,6 +1033,44 @@ class OneSellerAdmin(Resource):
                                  "name":inventory.make,
                                  "image":inventory.image
                                  },
+                "promotions": sale.promotions,
+            }
+            return make_response(jsonify(one_sale), 200)
+        elif check_user_role.role == 'seller' :
+            sale = Sale.query.filter_by(id=sale_id, seller_id =user_id).first()
+        
+            if not sale:
+                return make_response(jsonify({"message": "Sale not found"}), 404)
+
+            customer = Customer.query.filter_by(id=sale.customer_id).first()
+            seller = User.query.filter_by(id=sale.seller_id).first()
+            inventory =Inventory.query.filter_by(id =sale.inventory_id).first()
+
+            if not customer or not seller:
+                return make_response(jsonify({"message": "Customer or seller not found for this sale"}), 404)
+
+            one_sale = {
+                "commision": sale.commision,
+                "status": sale.status,
+                "history": sale.history,
+                "discount": sale.discount,
+                "sale_date": sale.sale_date,
+                "customer": {
+                    "id": customer.id,
+                    "Names": f'{customer.first_name} {customer.last_name}',
+                    "email": customer.email,
+                    
+                },
+                "seller": {
+                    "id": seller.id,
+                    "Names": f'{seller.first_name} {seller.last_name}',
+                    "email": seller.email,
+                    
+                },
+                "inventory_id": {
+                                    "id":inventory.id,
+                                    "name":inventory.make
+                                    },
                 "promotions": sale.promotions,
             }
             return make_response(jsonify(one_sale), 200)
@@ -1289,7 +1313,42 @@ class InvoiceCreate(Resource):
             return make_response(jsonify({'message': 'Invoice created successfully', 'invoice_id': new_invoice.id}), 201)
         except Exception as e:
             return make_response(jsonify({'message': 'Failed to create invoice', 'error': str(e)}), 500)
+    
 
+class GeneralInvoices(Resource):
+    @jwt_required()
+    def get(self):
+        user_id = get_jwt_identity()
+
+        check_user_role = User.query.filter_by(id=user_id).first()
+        
+        if check_user_role.role == 'admin' and check_user_role.status == "active" or check_user_role.role == 'super admin' and check_user_role.status == "active":
+            invoices = Invoice.query.all()
+
+            # Create a dictionary to store aggregated data for each seller
+            seller_data = defaultdict(lambda: {'total_customers': 0, 'total_sales': 0, 'total_inventory_sold': 0})
+
+            # Loop through each invoice and aggregate data
+            for invoice in invoices:
+                seller_name = f"{invoice.user.first_name} {invoice.user.last_name}"  # Assuming 'first_name' and 'last_name' fields in the User model
+                seller_data[seller_name]['total_customers'] += 1
+                seller_data[seller_name]['total_sales'] += 1 # Increment total sales sold
+                seller_data[seller_name]['total_inventory_sold'] += 1  # Increment total inventory sold
+
+            # Convert the aggregated data into a list of dictionaries
+            aggregated_invoices = [
+                {
+                    'seller_name': seller_name,
+                    'total_customers': data['total_customers'],
+                    'total_sales': data['total_sales'],
+                    'total_inventory_sold': data['total_inventory_sold']
+                }
+                for seller_name, data in seller_data.items()
+            ]
+
+            return make_response(jsonify(aggregated_invoices), 200)
+        else:
+            return make_response(jsonify({"Message":"user unauthorized"}), 401)
 class AllInvoices(Resource):
     def get(self):
         invoices =[
@@ -1517,7 +1576,7 @@ api.add_resource(InvoiceGet, '/invoice/<int:invoice_id>')
 api.add_resource(InvoiceUpdate, '/updateinvoice/<int:invoice_id>')
 api.add_resource(InvoiceDelete, '/deleteinvoice/<int:invoice_id>')
 api.add_resource(AllInvoices, '/invoices')
-
+api.add_resource(GeneralInvoices, '/general')
 
 
 
