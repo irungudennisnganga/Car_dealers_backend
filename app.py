@@ -1187,8 +1187,8 @@ class Receipt(Resource):
     def post(self):
         user_id = get_jwt_identity()
 
-        user = User.query.filter_by(id=user_id).first()
-        if not user or user.role not in ['admin', 'super admin']:
+        check_user_role = User.query.filter_by(id=user_id).first()
+        if check_user_role.role not in ['admin', 'super admin']:
             return {'message': 'User unauthorized'}, 401
 
         data = request.json
@@ -1212,8 +1212,8 @@ class Receipt(Resource):
     def get(self):
         user_id = get_jwt_identity()
 
-        user = User.query.filter_by(id=user_id).first()
-        if not user or user.role not in ['admin', 'super admin']:
+        check_user_role = User.query.filter_by(id=user_id).first()
+        if check_user_role.role not in ['admin', 'super admin']:
             return {'message': 'User unauthorized'}, 401
 
         receipts = Receipt.query.all()
@@ -1232,9 +1232,9 @@ class Receipt_update(Resource):
     @jwt_required()
     def patch(self, id):
         user_id = get_jwt_identity()
+        check_user_role = User.query.filter_by(id=user_id).first()
 
-        user = User.query.filter_by(id=user_id).first()
-        if not user or user.role not in ['admin', 'super admin']:
+        if check_user_role.role not in ['admin', 'super admin']:
             return {'message': 'User unauthorized'}, 401
 
         data = request.json
@@ -1243,36 +1243,30 @@ class Receipt_update(Resource):
         if not receipt:
             return {'message': 'Receipt not found'}, 404
 
-        if receipt.user_id == user_id:
-            for key, value in data.items():
-                if hasattr(receipt, key):
-                    setattr(receipt, key, value)
+        for key, value in data.items():
+            if hasattr(receipt, key):
+                setattr(receipt, key, value)
 
-            db.session.commit()
-            return {'message': 'Receipt updated successfully'}, 200
-        else:
-            return {'message': 'User does not have permission to update this receipt'}, 401
+        db.session.commit()
+        return {'message': 'Receipt updated successfully'}, 200
 
     # DELETE
     @jwt_required()
     def delete(self, id):
         user_id = get_jwt_identity()
+        check_user_role = User.query.filter_by(id=user_id).first()
 
-        user = User.query.filter_by(id=user_id).first()
-        if not user or user.role not in ['admin', 'super admin']:
+        if check_user_role.role not in ['admin', 'super admin']:
             return {'message': 'User unauthorized'}, 401
 
         receipt = Receipt.query.filter_by(id=id).first()
         if not receipt:
             return {'message': 'Receipt not found'}, 404
 
-        if receipt.user_id == user_id:
-            db.session.delete(receipt)
-            db.session.commit()
-            return {'message': 'Receipt deleted successfully'}, 200
-        else:
-            return {'message': 'User does not have permission to delete this receipt'}, 401
-        
+        db.session.delete(receipt)
+        db.session.commit()
+        return {'message': 'Receipt deleted successfully'}, 200
+
 class InvoiceCreate(Resource):
     @jwt_required()
     def post(self):
@@ -1458,8 +1452,8 @@ class Notification(Resource):
     def post(self):
         user_id = get_jwt_identity()
 
-        user = User.query.filter_by(id=user_id).first()
-        if not user or user.role not in ['admin', 'super admin']:
+        check_user_role = User.query.filter_by(id=user_id).first()
+        if check_user_role.role not in ['admin', 'super admin']:
             return {'message': 'User unauthorized'}, 401
 
         data = request.json
@@ -1483,8 +1477,8 @@ class Notification(Resource):
     def get(self):
         user_id = get_jwt_identity()
 
-        user = User.query.filter_by(id=user_id).first()
-        if not user or user.role not in ['admin', 'super admin']:
+        check_user_role = User.query.filter_by(id=user_id).first()
+        if check_user_role.role not in ['admin', 'super admin']:
             return {'message': 'User unauthorized'}, 401
 
         notifications = Notification.query.all()
@@ -1503,9 +1497,9 @@ class Notification_update(Resource):
     @jwt_required()
     def patch(self, id):
         user_id = get_jwt_identity()
+        check_user_role = User.query.filter_by(id=user_id).first()
 
-        user = User.query.filter_by(id=user_id).first()
-        if not user or user.role not in ['admin', 'super admin']:
+        if check_user_role.role not in ['admin', 'super admin']:
             return {'message': 'User unauthorized'}, 401
 
         data = request.json
@@ -1514,35 +1508,30 @@ class Notification_update(Resource):
         if not notification:
             return {'message': 'Notification not found'}, 404
 
-        if notification.user_id == user_id:
-            for key, value in data.items():
-                if hasattr(notification, key):
-                    setattr(notification, key, value)
+        for key, value in data.items():
+            if hasattr(notification, key):
+                setattr(notification, key, value)
 
-            db.session.commit()
-            return {'message': 'Notification updated successfully'}, 200
-        else:
-            return {'message': 'User does not have permission to update this notification'}, 401
+        db.session.commit()
+        return {'message': 'Notification updated successfully'}, 200
 
     # DELETE
     @jwt_required()
     def delete(self, id):
         user_id = get_jwt_identity()
+        check_user_role = User.query.filter_by(id=user_id).first()
 
-        user = User.query.filter_by(id=user_id).first()
-        if not user or user.role not in ['admin', 'super admin']:
+        if check_user_role.role not in ['admin', 'super admin']:
             return {'message': 'User unauthorized'}, 401
 
         notification = Notification.query.filter_by(id=id).first()
         if not notification:
             return {'message': 'Notification not found'}, 404
 
-        if notification.user_id == user_id:
-            db.session.delete(notification)
-            db.session.commit()
-            return {'message': 'Notification deleted successfully'}, 200
-        else:
-            return {'message': 'User does not have permission to delete this notification'}, 401
+        db.session.delete(notification)
+        db.session.commit()
+        return {'message': 'Notification deleted successfully'}, 200
+
 
 
 
