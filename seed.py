@@ -1,5 +1,5 @@
 from config import app, db, bcrypt
-from models import User, Inventory, Importation, Customer, Sale, Invoice, Report, Notification, Receipt
+from models import User, Inventory, Importation, Customer, Sale, Invoice, Report, Notification, Receipt,GalleryImage
 
 def seed_data():
     with app.app_context():
@@ -13,6 +13,7 @@ def seed_data():
         db.session.query(Report).delete()
         db.session.query(Notification).delete()
         db.session.query(Receipt).delete()
+        db.session.query(GalleryImage).delete()
         db.session.commit()
 
         # Add users
@@ -52,6 +53,10 @@ def seed_data():
         
         inventory9 = Inventory(make='Toyota', image='https://images.pexels.com/photos/3311574/pexels-photo-3311574.jpeg?auto=compress&cs=tinysrgb&w=1260&h=750&dpr=1', price=4500000, currency='KSH', model='SUV', year='2022', VIN=9864211009765, color='Black', mileage=5000, body_style='SUV', transmission='Automatic', fuel_type='Gasoline', engine_size='3.5L', drive_type='AWD', trim_level='XLE', condition='New', availability='Available', cylinder=6, doors=4, stock_number=1001, purchase_cost=12000, profit=3000, user_id=3)
         inventory10 = Inventory(make='Honda', image='https://images.pexels.com/photos/712618/pexels-photo-712618.jpeg?auto=compress&cs=tinysrgb&w=600', price=4800000, currency='KSH', model='Sedan', year='2021', VIN=96211234567986445, color='White', mileage=10000, body_style='Sedan', transmission='Automatic', fuel_type='Gasoline', engine_size='2.0L', drive_type='FWD', trim_level='Touring', condition='Used', availability='Not Available', cylinder=4, doors=4, stock_number=1002, purchase_cost=15000, profit=5000, user_id=3)
+        gallery1=GalleryImage(url='https://images.pexels.com/photos/244818/pexels-photo-244818.jpeg?auto=compress&cs=tinysrgb&w=600', inventory_id=1)
+        gallery2=GalleryImage(url='https://images.pexels.com/photos/1104768/pexels-photo-1104768.jpeg?auto=compress&cs=tinysrgb&w=600', inventory_id=1)
+        gallery3=GalleryImage(url='https://images.pexels.com/photos/244818/pexels-photo-244818.jpeg?auto=compress&cs=tinysrgb&w=600', inventory_id=2)
+        gallery4=GalleryImage(url='https://images.pexels.com/photos/1104768/pexels-photo-1104768.jpeg?auto=compress&cs=tinysrgb&w=600', inventory_id=2)
         db.session.add(inventory1)
         db.session.add(inventory3)
         db.session.add(inventory4)
@@ -61,7 +66,10 @@ def seed_data():
         db.session.add(inventory8)
         db.session.add(inventory9)
         db.session.add(inventory10)
-        
+        db.session.add(gallery1)
+        db.session.add(gallery2)
+        db.session.add(gallery3)
+        db.session.add(gallery4)
         db.session.add(inventory2)
 
         # Add importations
