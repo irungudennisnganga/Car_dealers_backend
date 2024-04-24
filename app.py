@@ -1115,31 +1115,55 @@ class Report(Resource):
         else:
             return make_response(jsonify({'message': 'User has no access rights to create a report'}), 401)
 
-    # GET
-    @jwt_required()
-    def get(self):
-        user_id = get_jwt_identity()
+  # GET
+@jwt_required()
+def get(self):
+    user_id = get_jwt_identity()
 
-        check_user_role = User.query.filter_by(id=user_id).first()
+    check_user_role = User.query.filter_by(id=user_id).first()
 
-        if check_user_role.role in ['admin', 'super admin']:
-            reports = Report.query.all()
-            serialized_reports = []
-            for report in reports:
-                serialized_report = {
-                    'id': report.id,
-                    'company_profit': report.company_profit,
-                    'sales_id': report.sales_id,
-                    'expenses': report.expenses,
-                    'sale_date': report.sale_date,
-                    'customer_id': report.customer_id,
-                    'seller_id': report.seller_id,
-                    'importation_id': report.importation_id
+    if check_user_role.role in ['admin', 'super admin']:
+        reports = Report.query.all()
+        serialized_reports = []
+        for report in reports:
+            customer = Customer.query.filter_by(id=report.customer_id).first()
+            seller = User.query.filter_by(id=report.seller_id).first()
+            importation = Importation.query.filter_by(id=report.importation_id).first()
+            sale = Sale.query.filter_by(id=report.sales_id).first()
+
+            serialized_report = {
+                'id': report.id,
+                'company_profit': report.company_profit,
+                'expenses': report.expenses,
+                'sale_date': report.sale_date,
+                'customer': {
+                    'id': customer.id,
+                    'Names': f'{customer.first_name} {customer.last_name}',
+                    'email': customer.email,
+                },
+                'seller': {
+                    'id': seller.id,
+                    'Names': f'{seller.first_name} {seller.last_name}',
+                    'email': seller.email,
+                },
+                'importation': {
+                    'id': importation.id,
+                    'name': importation.name,
+                },
+                'sale': {
+                    'id': sale.id,
+                    'commision': sale.commision,
+                    'status': sale.status,
+                    'history': sale.history,
+                    'discount': sale.discount,
+                    'sale_date': sale.sale_date,
+                    'promotions': sale.promotions,
                 }
-                serialized_reports.append(serialized_report)
-            return make_response(jsonify(serialized_reports), 200)
-        else:
-            return make_response(jsonify({'message': 'User unauthorized'}), 401)
+            }
+            serialized_reports.append(serialized_report)
+        return make_response(jsonify(serialized_reports), 200)
+    else:
+        return make_response(jsonify({'message': 'User unauthorized'}), 401)
 
 
 class Report_update(Resource):
@@ -1207,24 +1231,42 @@ class Receipt(Resource):
         db.session.refresh(new_receipt)
         return make_response(jsonify({'message': 'Receipt created successfully'}), 201)
 
-    # GET
-    @jwt_required()
-    def get(self):
-        user_id = get_jwt_identity()
+   # GET
+@jwt_required()
+def get(self):
+    user_id = get_jwt_identity()
 
-        check_user_role = User.query.filter_by(id=user_id).first()
-        if check_user_role.role not in ['admin', 'super admin']:
-            return {'message': 'User unauthorized'}, 401
+    check_user_role = User.query.filter_by(id=user_id).first()
 
+    if check_user_role.role in ['admin', 'super admin']:
         receipts = Receipt.query.all()
-        return make_response(jsonify([{
-            'id': receipt.id,
-            'user_id': receipt.user_id,
-            'customer_id': receipt.customer_id,
-            'invoice_id': receipt.invoice_id,
-            'amount_paid': receipt.amount_paid,
-            'time_stamp': receipt.time_stamp
-        } for receipt in receipts]))
+        serialized_receipts = []
+        for receipt in receipts:
+            customer = Customer.query.filter_by(id=receipt.customer_id).first()
+            invoice = Invoice.query.filter_by(id=receipt.invoice_id).first()
+
+            serialized_receipt = {
+                'id': receipt.id,
+                'user_id': receipt.user_id,
+                'customer': {
+                    'id': customer.id,
+                    'Names': f'{customer.first_name} {customer.last_name}',
+                    'email': customer.email,
+                },
+                'invoice': {
+                    'id': invoice.id,
+                    'number': invoice.number,
+                    'date': invoice.date,
+                    # Add more fields as needed
+                },
+                'amount_paid': receipt.amount_paid,
+                'time_stamp': receipt.time_stamp
+            }
+            serialized_receipts.append(serialized_receipt)
+        return make_response(jsonify(serialized_receipts), 200)
+    else:
+        return make_response(jsonify({'message': 'User unauthorized'}), 401)
+
 
 
 class Receipt_update(Resource):
@@ -1472,24 +1514,37 @@ class Notification(Resource):
         db.session.refresh(new_notification)
         return make_response(jsonify({'message': 'Notification created successfully'}), 201)
 
-    # GET
-    @jwt_required()
-    def get(self):
-        user_id = get_jwt_identity()
+ # GET
+@jwt_required()
+def get(self):
+    user_id = get_jwt_identity()
 
-        check_user_role = User.query.filter_by(id=user_id).first()
-        if check_user_role.role not in ['admin', 'super admin']:
-            return {'message': 'User unauthorized'}, 401
+    check_user_role = User.query.filter_by(id=user_id).first()
 
+    if check_user_role.role in ['admin', 'super admin']:
         notifications = Notification.query.all()
-        return make_response(jsonify([{
-            'id': notification.id,
-            'user_id': notification.user_id,
-            'customer_id': notification.customer_id,
-            'notification_type': notification.notification_type,
-            'message': notification.message,
-            'time_stamp': notification.time_stamp
-        } for notification in notifications]))
+        serialized_notifications = []
+        for notification in notifications:
+            customer = Customer.query.filter_by(id=notification.customer_id).first()
+
+            serialized_notification = {
+                'id': notification.id,
+                'user_id': notification.user_id,
+                'customer_id': notification.customer_id,
+                'notification_type': notification.notification_type,
+                'message': notification.message,
+                'time_stamp': notification.time_stamp,
+                'customer': {
+                    'id': customer.id,
+                    'Names': f'{customer.first_name} {customer.last_name}',
+                    'email': customer.email,
+                }
+            }
+            serialized_notifications.append(serialized_notification)
+        return make_response(jsonify(serialized_notifications), 200)
+    else:
+        return make_response(jsonify({'message': 'User unauthorized'}), 401)
+
 
 
 class Notification_update(Resource):
