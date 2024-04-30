@@ -1527,52 +1527,71 @@ class AllInvoices(Resource):
             return make_response(jsonify({'message': 'User unauthorized'}), 401)
 class AdminInvoice(Resource):
     @jwt_required()
-    def get(self,seller_name):
+    def get(self, seller_name):
         user_id = get_jwt_identity()
 
         check_user_role = User.query.filter_by(id=user_id).first()
-        user =User.query.filter_by(first_name =seller_name).first()
+        user = User.query.filter_by(first_name=seller_name).first()
         if user:
-            invoices =Invoice.query.filter_by(seller_id=user.id).all()
-            if check_user_role.role == 'admin' and check_user_role.status == "active" or check_user_role.role == 'super admin' and check_user_role.status == "active":
+            invoices = Invoice.query.filter_by(seller_id=user.id).all()
+            if check_user_role.role in ['admin', 'super admin'] and check_user_role.status == "active":
                 if invoices:
-                    invoice =[
-                    {
-                        'id': invoice.id,
-                        'date_of_purchase': invoice.date_of_purchase,
-                        'method': invoice.method,
-                        'amount_paid': invoice.amount_paid,
-                        'fee': invoice.fee,
-                        'tax': invoice.tax,
-                        'currency': invoice.currency,
-                        'seller_id': invoice.seller_id,
-                        'customer_id': invoice.customer_id,
-                        'vehicle_id': invoice.vehicle_id,
-                        'balance': invoice.balance,
-                        'total_amount': invoice.total_amount,
-                        'installments': invoice.installments,
-                        'pending_cleared': invoice.pending_cleared,
-                        'signature': invoice.signature,
-                        'warranty': invoice.warranty,
-                        'terms_and_conditions': invoice.terms_and_conditions,
-                        'agreement_details': invoice.agreement_details,
-                        'additional_accessories': invoice.additional_accessories,
-                        'notes_instructions': invoice.notes_instructions,
-                        'payment_proof': invoice.payment_proof,
-                        'created_at': invoice.created_at,
-                        'updated_at': invoice.updated_at.isoformat() if invoice.updated_at else None,
+                    invoice_data = []
+                    for invoice in invoices:
+                        seller = User.query.get(invoice.seller_id)
+                        customer = Customer.query.get(invoice.customer_id)
+                        vehicle = Inventory.query.get(invoice.vehicle_id)
 
-                    }
-                    for invoice in invoices
-                    ]
-                    
-                    return make_response(jsonify(invoice), 200)
+                        invoice_dict = {
+                            'id': invoice.id,
+                            'date_of_purchase': invoice.date_of_purchase,
+                            'method': invoice.method,
+                            'amount_paid': invoice.amount_paid,
+                            'fee': invoice.fee,
+                            'tax': invoice.tax,
+                            'currency': invoice.currency,
+                            # 'seller_id': invoice.seller_id,
+                            'seller_name': {
+                                'id':seller.id,
+                                "name":f'{seller.first_name} {seller.last_name}'
+                                } ,
+                            # 'customer_id': invoice.customer_id,
+                            'customer_name': {
+                                'id':customer.id,
+                                "name":f'{customer.first_name } {customer.last_name }'
+                                },
+                            # 'vehicle_id': invoice.vehicle_id,
+                            'vehicle_details': {
+                                'id':vehicle.id,
+                                'make': vehicle.make,
+                                'model': vehicle.model ,
+                                'year': vehicle.year,
+                                
+                            },
+                            'balance': invoice.balance,
+                            'total_amount': invoice.total_amount,
+                            'installments': invoice.installments,
+                            'pending_cleared': invoice.pending_cleared,
+                            'signature': invoice.signature,
+                            'warranty': invoice.warranty,
+                            'terms_and_conditions': invoice.terms_and_conditions,
+                            'agreement_details': invoice.agreement_details,
+                            'additional_accessories': invoice.additional_accessories,
+                            'notes_instructions': invoice.notes_instructions,
+                            'payment_proof': invoice.payment_proof,
+                            'created_at': invoice.created_at,
+                            'updated_at': invoice.updated_at.isoformat() if invoice.updated_at else None,
+                        }
+                        invoice_data.append(invoice_dict)
+
+                    return make_response(jsonify(invoice_data), 200)
                 else:
-                    return make_response(jsonify({'Message':"No Invoice found"}), 404)
+                    return make_response(jsonify({'Message': "No Invoice found"}), 404)
             else:
-                    return make_response(jsonify({'Message':"User unauthorized"}), 401)
+                return make_response(jsonify({'Message': "User unauthorized"}), 401)
         else:
-                    return make_response(jsonify({'Message':"No user found"}), 404)
+            return make_response(jsonify({'Message': "No user found"}), 404)
+
 class InvoiceGet(Resource):
     
     @jwt_required()
