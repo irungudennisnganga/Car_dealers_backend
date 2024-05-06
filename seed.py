@@ -32,7 +32,7 @@ def seed_data():
         db.session.add(user1)
         db.session.add(user3)
         db.session.add(user2)
-        db.session.add(user4)
+        db.session.add(user4) 
         db.session.add(user5)
         # db.session.add(user6)
         db.session.add(user7)

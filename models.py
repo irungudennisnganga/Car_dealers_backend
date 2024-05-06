@@ -164,7 +164,7 @@ class Invoice(db.Model, SerializerMixin):
     tax = db.Column(db.Integer, nullable=False)
     currency = db.Column(db.String, nullable=False)
     seller_id = db.Column(db.Integer, db.ForeignKey("user.id"), nullable=False)
-    sale_id = db.Column(db.Integer, db.ForeignKey("sales.id"), nullable=False)
+    sale_id = db.Column(db.Integer, db.ForeignKey("sales.id"), nullable=True)
     balance = db.Column(db.Integer, nullable=False)
     total_amount = db.Column(db.Integer, nullable=False)
     installments = db.Column(db.Integer, nullable=False)

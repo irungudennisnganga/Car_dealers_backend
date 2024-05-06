@@ -1390,7 +1390,7 @@ class InvoiceCreate(Resource):
         data = request.get_json()
         try:
             new_invoice = Invoice(
-                date_of_purchase=datetime.datetime.strptime(data['date_of_purchase'], "%Y-%m-%d"),
+                date_of_purchase = datetime.strptime(data['date_of_purchase'], "%Y-%m-%d"),
                 method=data['method'],
                 amount_paid=data['amount_paid'],
                 fee=data['fee'],
