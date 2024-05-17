@@ -9,12 +9,28 @@ import cloudinary.uploader
 import cloudinary.api
 from datetime import datetime
 from collections import defaultdict
+import smtplib
 
+def send_email(email,subject,body):
+    
+    smtp_server = 'smtp.gmail.com'
+    smtp_port = 587
+    sender_email = 'irungud220@gmail.com'
+    sender_password = 'qbpq uvgp rrqh bjky'
+    subject=subject
+    body=body
+
+    message = f'Subject: {subject}\n\n{body}'
+
+    with smtplib.SMTP(smtp_server, smtp_port) as server:
+        server.starttls()
+        server.login(sender_email, sender_password)
+        server.sendmail(sender_email,email,message)
 
 cloudinary.config(
-    cloud_name='df3sytxef',
-    api_key='985443855749731',
-    api_secret='lo3vNIHKIgq9R6CZOdcAcQAUKjA'
+    cloud_name='dups4sotm',
+    api_key='141549863151677',
+    api_secret='ml0oq6T67FZeXf6AFJqhhPsDfAs'
 )
 
 
@@ -46,6 +62,7 @@ class CheckSession(Resource):
 class Login(Resource):
 
     def post(self):
+        
         email = request.json.get("email")
         password = request.json.get("password")
 
@@ -58,9 +75,14 @@ class Login(Resource):
 
         if check_password_hash(user._password_hash, password):
             access_token = create_access_token(identity=user.id)
+            # send_email(email=email,subject='Login Successful', body='You have been logged in your account successfully')
+            user.status="active"
+            
+            db.session.commit()
+            
             return make_response(jsonify(access_token=access_token), 200)
 
-        return make_response(jsonify({"message": "Wrong password"}), 422)
+        return make_response(jsonify({"message": "Wrong password"}), 406)
 
 
 class SignupUser(Resource):
@@ -78,13 +100,13 @@ class SignupUser(Resource):
         image_file = request.files.get('image')
         contact = data.get('contact')
         email = data.get('email')
-        status="active",
-        role = data.get(
-            'role') if check_user_role.role == 'super admin' else 'seller'
+        status = "inactive"
+        role = data.get('role') if check_user_role.role == 'super admin' else 'seller'
         password = '8Dn@3pQo'
-
-        if not all([first_name, last_name, image_file, email, contact, role]):
-            return make_response(jsonify({'errors': ['Missing required data']}), 400)
+        # print(image_file)
+        
+        if not all([first_name, last_name, email, contact, role]) or not image_file:
+            return make_response(jsonify({'errors': ['Missing required data']}), 406)
 
         if User.query.filter_by(email=email).first() or User.query.filter_by(contact=contact).first():
             return make_response(jsonify({'message': 'User already exists'}), 400)
@@ -112,14 +134,19 @@ class SignupUser(Resource):
             contact=contact,
             status=status,
             role=role,
-            _password_hash=bcrypt.generate_password_hash(
-                password).decode('utf-8')
+            _password_hash=bcrypt.generate_password_hash(password).decode('utf-8')
         )
         db.session.add(new_user)
         db.session.commit()
+        # Send email here (assuming you have a function defined for this)
+        send_email(
+    email=email,
+    subject='You have been signed up',
+    body=f'You have been signed up to our car dealership management system. Use this password to login into your account PASSWORD: {password} EMAIL: {email}'
+)
+
 
         return make_response(jsonify({'message': 'Sign up successful'}), 200)
-
 
 class UpdatePassword(Resource):
     def post(self):
@@ -147,6 +174,7 @@ class UpdatePassword(Resource):
             new_password).decode('utf-8')
 
         db.session.commit()
+        send_email(email=user_email, subject='Password Updates', body='Password updated successfully')
         return make_response(jsonify({'message': 'Password updated successfully'}), 200)
 
 
