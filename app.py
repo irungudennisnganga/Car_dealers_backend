@@ -75,7 +75,8 @@ class Login(Resource):
 
         if check_password_hash(user._password_hash, password):
             access_token = create_access_token(identity=user.id)
-            # send_email(email=email,subject='Login Successful', body='You have been logged in your account successfully')
+            # remember to uncomment this code
+            send_email(email=email,subject='Login Successful', body='You have been logged in your account successfully')
             user.status="active"
             
             db.session.commit()
@@ -378,31 +379,28 @@ class INVENTORY(Resource):
     @jwt_required()
     def post(self):
         user_id = get_jwt_identity()
-
         check_user_role = User.query.filter_by(id=user_id).first()
         data = request.form
         image = request.files.get('image')
-        # Changed to getlist to handle multiple files
-        gallery = request.files.getlist('gallery')
+        gallery = request.files.getlist('gallery_images')
 
-        if image.filename == '' or len(gallery) == 0:
+        # print(gallery)
+        if image.filename == '':
             return {'error': 'No image selected for upload'}, 400
 
         def allowed_file(filename):
-            return '.' in filename and filename.rsplit('.', 1)[1].lower() in {'png', 'jpg', 'jpeg', 'gif'}
+            return '.' in filename and filename.rsplit('.', 1)[1].lower() in {'png', 'jpg', 'jpeg', 'gif', 'webp'}
 
         if not allowed_file(image.filename) or not all(allowed_file(g.filename) for g in gallery):
             return {'error': 'Invalid file type. Only images are allowed'}, 400
 
-        # Upload images to Cloudinary
         try:
             image_upload_result = cloudinary.uploader.upload(image)
-            gallery_upload_results = [
-                cloudinary.uploader.upload(g) for g in gallery]
+            gallery_upload_results = [cloudinary.uploader.upload(g) for g in gallery]
         except Exception as e:
             return {'error': f'Error uploading image: {str(e)}'}, 500
 
-        if check_user_role.role == 'admin' and check_user_role.status == "active" or check_user_role.role == 'super admin' and check_user_role.status == "active":
+        if (check_user_role.role == 'admin' and check_user_role.status == "active") or (check_user_role.role == 'super admin' and check_user_role.status == "active"):
             new_inventory_item = Inventory(
                 make=data.get('make'),
                 image=image_upload_result['secure_url'],
@@ -430,18 +428,15 @@ class INVENTORY(Resource):
                 user_id=user_id
             )
 
-            # Add new inventory item to session
             db.session.add(new_inventory_item)
             db.session.commit()
 
-            db.session.refresh(new_inventory_item)  # Refresh to get the ID
+            db.session.refresh(new_inventory_item)
             last_item = Inventory.query.order_by(Inventory.id.desc()).first()
-            # print(last_item)
 
-            # Add gallery images
             for result in gallery_upload_results:
                 gallery_image = GalleryImage(
-                    url=result['secure_url'], inventory_id=last_item.id)  # Use last_item.id
+                    url=result['secure_url'], inventory_id=last_item.id)
                 db.session.add(gallery_image)
 
             db.session.commit()
@@ -451,7 +446,7 @@ class INVENTORY(Resource):
             return make_response(jsonify({'message': 'User has no access rights to create a Car'}), 401)
 
     # GET
-    @jwt_required()
+    # @jwt_required()
     def get(self):
         items = Inventory.query.all()
         return make_response(jsonify([{
@@ -1585,68 +1580,69 @@ class AdminInvoice(Resource):
     @jwt_required()
     def get(self, seller_name):
         user_id = get_jwt_identity()
-
         check_user_role = User.query.filter_by(id=user_id).first()
+
+        if not check_user_role:
+            return make_response(jsonify({'Message': "User not found"}), 404)
+
         user = User.query.filter_by(first_name=seller_name).first()
-        if user:
-            invoices = Invoice.query.filter_by(seller_id=user.id).all()
-            if check_user_role.role in ['admin', 'super admin'] and check_user_role.status == "active":
-                if invoices:
-                    invoice_data = []
-                    for invoice in invoices:
-                        seller = User.query.get(invoice.seller_id)
-                        customer = Customer.query.get(invoice.customer_id)
-                        vehicle = Inventory.query.get(invoice.vehicle_id)
 
-                        invoice_dict = {
-                            'id': invoice.id,
-                            'date_of_purchase': invoice.date_of_purchase,
-                            'method': invoice.method,
-                            'amount_paid': invoice.amount_paid,
-                            'fee': invoice.fee,
-                            'tax': invoice.tax,
-                            'currency': invoice.currency,
-                            # 'seller_id': invoice.seller_id,
-                            'seller_name': {
-                                'id':seller.id,
-                                "name":f'{seller.first_name} {seller.last_name}'
-                                } ,
-                            # 'customer_id': invoice.customer_id,
-                            'customer_name': {
-                                'id':customer.id,
-                                "name":f'{customer.first_name } {customer.last_name }'
-                                },
-                            # 'vehicle_id': invoice.vehicle_id,
-                            'vehicle_details': {
-                                'id':vehicle.id,
-                                'make': vehicle.make,
-                                'model': vehicle.model ,
-                                'year': vehicle.year,
-                                
-                            },
-                            'balance': invoice.balance,
-                            'total_amount': invoice.total_amount,
-                            'installments': invoice.installments,
-                            'pending_cleared': invoice.pending_cleared,
-                            'signature': invoice.signature,
-                            'warranty': invoice.warranty,
-                            'terms_and_conditions': invoice.terms_and_conditions,
-                            'agreement_details': invoice.agreement_details,
-                            'additional_accessories': invoice.additional_accessories,
-                            'notes_instructions': invoice.notes_instructions,
-                            'payment_proof': invoice.payment_proof,
-                            'created_at': invoice.created_at,
-                            'updated_at': invoice.updated_at.isoformat() if invoice.updated_at else None,
-                        }
-                        invoice_data.append(invoice_dict)
-
-                    return make_response(jsonify(invoice_data), 200)
-                else:
-                    return make_response(jsonify({'Message': "No Invoice found"}), 404)
-            else:
-                return make_response(jsonify({'Message': "User unauthorized"}), 401)
-        else:
+        if not user:
             return make_response(jsonify({'Message': "No user found"}), 404)
+
+        if check_user_role.role not in ['admin', 'super admin'] or check_user_role.status != "active":
+            return make_response(jsonify({'Message': "User unauthorized"}), 401)
+
+        invoices = Invoice.query.filter_by(seller_id=user.id).all()
+
+        if not invoices:
+            return make_response(jsonify({'Message': "No Invoice found"}), 404)
+
+        invoice_data = []
+        for invoice in invoices:
+            seller = User.query.get(invoice.seller_id)
+            customer = Customer.query.get(invoice.customer_id)
+            vehicle = Inventory.query.get(invoice.vehicle_id)
+
+            invoice_dict = {
+                'id': invoice.id,
+                'date_of_purchase': invoice.date_of_purchase,
+                'method': invoice.method,
+                'amount_paid': invoice.amount_paid,
+                'fee': invoice.fee,
+                'tax': invoice.tax,
+                'currency': invoice.currency,
+                'seller_name': {
+                    'id': seller.id,
+                    'name': f'{seller.first_name} {seller.last_name}'
+                } if seller else None,
+                'customer_name': {
+                    'id': customer.id if customer else None,
+                    'name': f'{customer.first_name} {customer.last_name}' if customer else None
+                },
+                'vehicle_details': {
+                    'id': vehicle.id if vehicle else None,
+                    'make': vehicle.make if vehicle else None,
+                    'model': vehicle.model if vehicle else None,
+                    'year': vehicle.year if vehicle else None
+                },
+                'balance': invoice.balance,
+                'total_amount': invoice.total_amount,
+                'installments': invoice.installments,
+                'pending_cleared': invoice.pending_cleared,
+                'signature': invoice.signature,
+                'warranty': invoice.warranty,
+                'terms_and_conditions': invoice.terms_and_conditions,
+                'agreement_details': invoice.agreement_details,
+                'additional_accessories': invoice.additional_accessories,
+                'notes_instructions': invoice.notes_instructions,
+                'payment_proof': invoice.payment_proof,
+                'created_at': invoice.created_at,
+                'updated_at': invoice.updated_at.isoformat() if invoice.updated_at else None,
+            }
+            invoice_data.append(invoice_dict)
+
+        return make_response(jsonify(invoice_data), 200)
 
 class InvoiceGet(Resource):
     
