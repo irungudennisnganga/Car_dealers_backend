@@ -679,24 +679,55 @@ class UpdateImportation(Resource):
             return make_response(jsonify({'message': 'Importation deleted successfully'}), 200)
         else:
             return make_response(jsonify({"message": "Unauthorized User"}), 404)
+class DetailCustomer(Resource):
+    @jwt_required()
+    def get(self):
+        # Get the current user's ID from the JWT token
+        user_id = get_jwt_identity()
+        check_user_role = User.query.filter_by(id=user_id).first()
+        # Retrieve only the customers associated with the current seller (user)
+        if check_user_role.role == 'seller' and check_user_role.status == "active" :
+            customers = Customer.query.filter_by(seller_id=user_id).all()
+        
+        # Check if customers exist
+            if not customers:
+                return make_response(jsonify({'message': 'No customers found for this seller'}), 404)
 
-class CustomerDetails(Resource):
+            # Serialize customer data
+            serialized_customers = [{
+                "first_name": customer.first_name,
+                'last_name': customer.last_name,
+                'email': customer.email,
+                'address': customer.address,
+                'phone_number': customer.phone_number,
+                'image_file': customer.image
+            } for customer in customers]
+
+            return make_response(jsonify(serialized_customers), 200)
+class Customers(Resource):
     @jwt_required()
     def get(self):
         # Get the current user's ID from the JWT token
         current_user_id = get_jwt_identity()
-        
+
         # Retrieve only the customers associated with the current seller (user)
-        customers = [{
+        customers = Customer.query.filter_by(seller_id=current_user_id).all()
+        
+        # Check if customers exist
+        if not customers:
+            return make_response(jsonify({'message': 'No customers found for this seller'}), 404)
+
+        # Serialize customer data
+        serialized_customers = [{
             "first_name": customer.first_name,
             'last_name': customer.last_name,
             'email': customer.email,
             'address': customer.address,
             'phone_number': customer.phone_number,
             'image_file': customer.image
-        } for customer in Customer.query.filter_by(seller_id=current_user_id).all()]
+        } for customer in customers]
 
-        return make_response(jsonify(customers), 200)
+        return make_response(jsonify(serialized_customers), 200)
     
     @jwt_required()  # Require JWT authentication
     def post(self):
@@ -868,7 +899,7 @@ class SaleResource(Resource):
 
         if check_user_role.role == 'seller' and check_user_role.status == "active":
             serialized_sales = []
-            for sale in Sale.query.all():
+            for sale in Sale.query.filter_by(seller_id=check_user_role.id):
                 customer = Customer.query.filter_by(id=sale.customer_id).first()
                 seller = User.query.filter_by(id=sale.seller_id).first()
                 inventory =Inventory.query.filter_by(id =sale.inventory_id).first()
@@ -1258,75 +1289,57 @@ class ReceiptAll(Resource):
     # GET
     @jwt_required()
     
+    
     def get(self):
         user_id = get_jwt_identity()
 
         check_user_role = User.query.filter_by(id=user_id).first()
+        # print(check_user_role)
+        if not check_user_role or check_user_role.status != "active":
+            return make_response(jsonify({'message': 'User unauthorized'}), 401)
 
-        if check_user_role.role == 'admin' and check_user_role.status == "active" or check_user_role.role == 'super admin' and check_user_role.status == "active":
+        serialized_receipts = []
+
+        if check_user_role.role in ['admin', 'super admin']:
             receipts = Receipt.query.all()
-            serialized_receipts = []
-            for receipt in receipts:
-                customer = Customer.query.filter_by(id=receipt.customer_id).first()
-                invoice = Invoice.query.filter_by(id=receipt.invoice_id).first()
-                user=User.query.filter_by(id=receipt.user_id).first()
-
-                serialized_receipt = {
-                    'id': receipt.id,
-                    'user_id': {
-                        "id":user.id,
-                        "names":f'{user.first_name} {user.last_name}'
-                        },
-                    'customer': {
-                        'id': customer.id,
-                        'Names': f'{customer.first_name} {customer.last_name}',
-                        'email': customer.email,
-                    },
-                    'invoice': {
-                        'id': invoice.id,
-                        'amount paid': invoice.amount_paid,
-                        # 'date': invoice.date,
-                        # Add more fields as needed
-                    },
-                    'amount_paid': receipt.amount_paid,
-                    'created at': receipt.created_at
-                }
-                serialized_receipts.append(serialized_receipt)
-            return make_response(jsonify(serialized_receipts), 200)
-        elif check_user_role.role == 'seller' and check_user_role.status == "active":
-        
-            receipts = Receipt.query.filter_by(id=user_id).all()
-            serialized_receipts = []
-            for receipt in receipts:
-                customer = Customer.query.filter_by(id=receipt.customer_id).first()
-                invoice = Invoice.query.filter_by(id=receipt.invoice_id).first()
-                user=User.query.filter_by(id=receipt.user_id).first()
-
-                serialized_receipt = {
-                    'id': receipt.id,
-                    'user': {
-                        "id":user.id,
-                        
-                        "names":f'{user.first_name} {user.last_name}'
-                        },
-                    'customer': {
-                        'id': customer.id,
-                        'Names': f'{customer.first_name} {customer.last_name}',
-                        'email': customer.email,
-                    },
-                    'invoice': {
-                        'id': invoice.id,
-                        'amount paid': invoice.amount_paid,
-                        # 'date': invoice.date,
-                        # Add more fields as needed
-                    },
-                    'amount_paid': receipt.amount_paid,
-                    'created at': receipt.created_at
-                }
-                serialized_receipts.append(serialized_receipt)
-            return make_response(jsonify(serialized_receipts), 200)
+        elif check_user_role.role == 'seller':
+            receipts = Receipt.query.filter_by(user_id=user_id).all()
         else:
             return make_response(jsonify({'message': 'User unauthorized'}), 401)
+
+        for receipt in receipts:
+            customer = Customer.query.filter_by(id=receipt.customer_id).first()
+            invoice = Invoice.query.filter_by(id=receipt.invoice_id).first()
+            user = User.query.filter_by(id=receipt.user_id).first()
+
+            if not (customer and invoice and user):
+                continue  # Skip this receipt if any required data is missing
+
+            serialized_receipt = {
+                'id': receipt.id,
+                'user': {
+                    "id": user.id,
+                    "names": f'{user.first_name} {user.last_name}',
+                    "email": user.email,
+                },
+                'customer': {
+                    'id': customer.id,
+                    'Names': f'{customer.first_name} {customer.last_name}',
+                    'email': customer.email,
+                },
+                'invoice': {
+                    'id': invoice.id,
+                    'amount_paid': invoice.amount_paid,
+                    # 'date': invoice.created_at,
+                    'total_amount': invoice.total_amount,  # Assuming this field exists
+                    'balance': invoice.balance,  # Assuming this field exists
+                },
+                'amount_paid': receipt.amount_paid,
+                'created_at': receipt.created_at
+            }
+            serialized_receipts.append(serialized_receipt)
+
+        return make_response(jsonify(serialized_receipts), 200)
 
 
 
@@ -1673,12 +1686,14 @@ class InvoiceGet(Resource):
                     'customer_name': {
                                 'id':customer.id,
                                 "name":f'{customer.first_name } {customer.last_name }',
-                                "address":customer.address
+                                "address":customer.address,
+                                'email':customer.email
                                 },
                     'vehicle': {
                                 "id":vehicle.id,
                                 "make":vehicle.make,
-                                "year":vehicle.year
+                                "year":vehicle.year,
+                                "model":vehicle.model
                                 },
                     'balance': invoice.balance,
                     'total_amount': invoice.total_amount,
@@ -1907,7 +1922,7 @@ api.add_resource(INVENTORY, '/inventory')
 api.add_resource(Importations, '/importations')
 api.add_resource(UpdatePassword, '/change_password')
 api.add_resource(UpdateImportation, '/importations/<int:importation_id>')
-api.add_resource(CustomerDetails, '/customerdetails')
+api.add_resource(Customers, '/customers')
 api.add_resource(SaleResource, '/sales')
 api.add_resource(SaleItemResource, '/sale/<int:sale_id>')
 api.add_resource(UpdateDetails, '/updatedetails/<int:customer_id>')
@@ -1927,7 +1942,7 @@ api.add_resource(InvoiceDelete, '/deleteinvoice/<int:invoice_id>')
 api.add_resource(AllInvoices, '/invoices')
 api.add_resource(GeneralInvoices, '/general')
 api.add_resource(AdminInvoice, '/userinvoice/<string:seller_name>')
-
+api.add_resource(DetailCustomer, '/customer')
 
 
 if __name__ == "__main__":
