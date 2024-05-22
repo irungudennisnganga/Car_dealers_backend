@@ -695,6 +695,7 @@ class DetailCustomer(Resource):
 
             # Serialize customer data
             serialized_customers = [{
+                "id":customer.id,
                 "first_name": customer.first_name,
                 'last_name': customer.last_name,
                 'email': customer.email,
@@ -719,6 +720,7 @@ class Customers(Resource):
 
         # Serialize customer data
         serialized_customers = [{
+            "id":customer.id,
             "first_name": customer.first_name,
             'last_name': customer.last_name,
             'email': customer.email,
@@ -910,6 +912,7 @@ class SaleResource(Resource):
                 
                 if customer and seller and inventory:
                     serialized_sale = {
+                        "id":sale.id,
                         "commision": sale.commision,
                         "status": sale.status,
                         "history": sale.history,
@@ -1071,6 +1074,7 @@ class OneSellerAdmin(Resource):
                 return make_response(jsonify({"message": "Customer or seller not found for this sale"}), 404)
 
             one_sale = {
+                "id":sale.id,
                 "commision": sale.commision,
                 "status": sale.status,
                 "history": sale.history,
@@ -1110,6 +1114,7 @@ class OneSellerAdmin(Resource):
                 return make_response(jsonify({"message": "Customer or seller not found for this sale"}), 404)
 
             one_sale = {
+                "id":sale.id,
                 "commision": sale.commision,
                 "status": sale.status,
                 "history": sale.history,
@@ -1438,7 +1443,8 @@ class InvoiceCreate(Resource):
                 fee=data['fee'],
                 tax=data['tax'],
                 currency=data['currency'],
-                seller_id=user_id,  
+                seller_id=user_id, 
+                sale_id=data['sale_id'], 
                 customer_id=data['customer_id'],
                 vehicle_id=data['vehicle_id'],
                 balance=data['balance'],
