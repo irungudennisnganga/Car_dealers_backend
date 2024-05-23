@@ -59,7 +59,13 @@ def seed_data():
         gallery4=GalleryImage(url='https://images.unsplash.com/photo-1629280878139-038999084e23?w=500&auto=format&fit=crop&q=60&ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxzZWFyY2h8OHx8Y2FyJTIwaW50ZXJpb3J8ZW58MHx8MHx8fDA%3D', inventory_id=2)
         gallery5=GalleryImage(url='https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcQlXtj5mczW8mpdca163lEL96So5vVkj0cGxOL_vnMj6f0czbctGYk0ocungF5UkkFcBRc&usqp=CAU', inventory_id=3)
         gallery6=GalleryImage(url='https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcSvuD7avGsbX7pPJMx5wXlShRlS0HyQDkNcL__x8s5wOuylMiGBzT4IeRYgw2Q1sZajAdA&usqp=CAU', inventory_id=3)
+        gallery7=GalleryImage(url='https://media.istockphoto.com/id/1407904356/photo/rear-back-passenger-car-seat.webp?b=1&s=170667a&w=0&k=20&c=8e0oHMxOt_aoyH7FlF2TfrsKreUvVbRvPiT6WgxmvgY=', inventory_id=4)
+        gallery8=GalleryImage(url='https://media.istockphoto.com/id/1287914899/photo/car-inside-part-of-interior.webp?b=1&s=170667a&w=0&k=20&c=nN2BmX-BRMStC_9Jln_cCEVAgAszTJ6ubEYep8ZtF20=', inventory_id=4)
+        gallery9=GalleryImage(url='https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcSvuD7avGsbX7pPJMx5wXlShRlS0HyQDkNcL__x8s5wOuylMiGBzT4IeRYgw2Q1sZajAdA&usqp=CAU', inventory_id=5)
+
+
         db.session.add(inventory1)
+        
         db.session.add(inventory3)
         db.session.add(inventory4)
         db.session.add(inventory5)
@@ -74,6 +80,9 @@ def seed_data():
         db.session.add(gallery4)
         db.session.add(gallery5)
         db.session.add(gallery6)
+        db.session.add(gallery7)
+        db.session.add(gallery8)
+        db.session.add(gallery9)
         db.session.add(inventory2)
 
         # Add importations
