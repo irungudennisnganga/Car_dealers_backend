@@ -938,7 +938,58 @@ class SaleResource(Resource):
             return make_response(jsonify(serialized_sales), 200)
         else:
             return make_response(jsonify({"message": "User unauthorized"}), 401)
-        
+
+class SaleReviewIfAlreadyCreated(Resource):
+    @jwt_required()
+    def get(self):
+        user_id = get_jwt_identity()
+
+        check_user_role = User.query.filter_by(id=user_id).first()
+
+        if check_user_role.role == 'seller' and check_user_role.status == "active":
+            serialized_sales = []
+            sales = Sale.query.filter_by(seller_id=check_user_role.id).all()
+            # if a sale has already an invoive it sould not appear
+            # for sale in sales:
+                
+            customers = Customer.query.all()
+            customer_dict = {customer.id: customer for customer in customers}  # Create a dictionary for quick lookup
+            
+            for sale in sales:
+                customer = customer_dict.get(sale.customer_id)  # Get the specific customer for this sale
+                seller = User.query.filter_by(id=sale.seller_id).first()
+                inventory = Inventory.query.filter_by(id=sale.inventory_id).first()
+
+                invoive =Invoice.query.filter_by(sale_id=sale.id).first()
+                
+                if not invoive:
+                    
+                    if customer and seller and inventory:
+                        serialized_sale = {
+                            "id":sale.id,
+                            "commision": sale.commision,
+                            "status": sale.status,
+                            "history": sale.history,
+                            "discount": sale.discount,
+                            "sale_date": sale.sale_date,
+                            "customer": {
+                                "id": customer.id,
+                                "Names": f'{customer.first_name} {customer.last_name}',
+                                "email": customer.email,
+                            },
+                            "seller": {
+                                "id": seller.id,
+                                "Names ": f'{seller.first_name} {seller.last_name}',
+                                "email": seller.email,
+                            },
+                            "inventory_id": {
+                                "id": inventory.id,
+                                "name": inventory.make
+                            },
+                            "promotions": sale.promotions,
+                        }
+                        serialized_sales.append(serialized_sale)
+            return make_response(jsonify(serialized_sales), 200)      
 
 class SaleItemResource(Resource):
     # PUT
@@ -1952,7 +2003,7 @@ api.add_resource(AllInvoices, '/invoices')
 api.add_resource(GeneralInvoices, '/general')
 api.add_resource(AdminInvoice, '/userinvoice/<string:seller_name>')
 api.add_resource(DetailCustomer, '/customer')
-
+api.add_resource(SaleReviewIfAlreadyCreated, '/saleinvoice')
 
 if __name__ == "__main__":
     app.run(port=5555, debug=True)
