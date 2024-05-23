@@ -1366,7 +1366,8 @@ class ReceiptAll(Resource):
                 customer_id=data.get('customer_id'),
                 invoice_id=data.get('invoice_id'),
                 amount_paid=data.get('amount_paid'),
-                time_stamp=datetime.now()
+                # remeber to correct here to caculate commission as expected
+                # commission=200
             )
 
             db.session.add(new_receipt)
@@ -1515,37 +1516,54 @@ class InvoiceCreate(Resource):
             return make_response(jsonify({'message': 'Unauthorized - Only sellers can create invoices'}), 403)
 
         data = request.get_json()
+        required_fields = ['date_of_purchase', 'method', 'amount_paid', 'fee', 'tax', 'currency', 'customer_id', 'vehicle_id', 'sale_id']
+
+        for field in required_fields:
+            if field not in data:
+                return make_response(jsonify({'message': f'Missing required field: {field}'}), 400)
+
         try:
+            # Fetch inventory by vehicle_id
+            id = data['vehicle_id']
+            paid = data['amount_paid']
+            inventory = Inventory.query.filter_by(id=id).first()
+
+            if not inventory:
+                return make_response(jsonify({'message': 'Invalid vehicle_id'}), 400)
+
+            balance = float(inventory.price) - float(paid)
+
+            
             new_invoice = Invoice(
                 date_of_purchase = datetime.strptime(data['date_of_purchase'], "%Y-%m-%d"),
-                method=data['method'],
-                amount_paid=data['amount_paid'],
-                fee=data['fee'],
-                tax=data['tax'],
-                currency=data['currency'],
-                seller_id=user_id, 
-                sale_id=data['sale_id'], 
-                customer_id=data['customer_id'],
-                vehicle_id=data['vehicle_id'],
-                balance=data['balance'],
-                total_amount=data['total_amount'],
-                installments=data['installments'],
-                pending_cleared=data['pending_cleared'],
-                signature=data['signature'],
-                warranty=data['warranty'],
-                terms_and_conditions=data['terms_and_conditions'],
-                agreement_details=data['agreement_details'],
-                additional_accessories=data['additional_accessories'],
-                notes_instructions=data['notes_instructions'],
-                payment_proof=data['payment_proof'],
-                
+                method = data['method'],
+                amount_paid = paid,
+                fee = data['fee'],
+                tax = data['tax'],
+                currency = data['currency'],
+                seller_id = user_id, 
+                sale_id = data['sale_id'], 
+                customer_id = data['customer_id'],
+                vehicle_id = id,
+                balance = balance,
+                total_amount = inventory.price,  # Use inventory price as total_amount
+                installments = data.get('installments'),  # Optional fields
+                pending_cleared = data.get('pending_cleared'),
+                signature = data.get('signature'),
+                warranty = data.get('warranty'),
+                terms_and_conditions = data.get('terms_and_conditions'),
+                agreement_details = data.get('agreement_details'),
+                additional_accessories = data.get('additional_accessories'),
+                notes_instructions = data.get('notes_instructions'),
+                payment_proof = data.get('payment_proof')
             )
             db.session.add(new_invoice)
             db.session.commit()
+            # send email to the customer
             return make_response(jsonify({'message': 'Invoice created successfully', 'invoice_id': new_invoice.id}), 201)
         except Exception as e:
-            return make_response(jsonify({'message': 'Failed to create invoice', 'error': str(e)}), 500)
-    
+            print(e)  # Log the exception for debugging
+            return make_response(jsonify({'message': 'Internal Server Error'}), 500)
 
 class GeneralInvoices(Resource):
     @jwt_required()

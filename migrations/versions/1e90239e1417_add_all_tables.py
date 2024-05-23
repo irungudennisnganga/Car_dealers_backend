@@ -1,8 +1,8 @@
-"""added tables
+"""add all tables
 
-Revision ID: b0b0af728de6
+Revision ID: 1e90239e1417
 Revises: 
-Create Date: 2024-04-15 14:40:15.222951
+Create Date: 2024-05-23 22:03:57.069425
 
 """
 from alembic import op
@@ -10,7 +10,7 @@ import sqlalchemy as sa
 
 
 # revision identifiers, used by Alembic.
-revision = 'b0b0af728de6'
+revision = '1e90239e1417'
 down_revision = None
 branch_labels = None
 depends_on = None
@@ -81,6 +81,8 @@ def upgrade():
     sa.Column('id', sa.Integer(), nullable=False),
     sa.Column('url', sa.String(length=255), nullable=False),
     sa.Column('inventory_id', sa.Integer(), nullable=True),
+    sa.Column('created_at', sa.DateTime(), server_default=sa.text('(CURRENT_TIMESTAMP)'), nullable=True),
+    sa.Column('updated_at', sa.DateTime(), nullable=True),
     sa.ForeignKeyConstraint(['inventory_id'], ['inventories.id'], ),
     sa.PrimaryKeyConstraint('id')
     )
@@ -104,6 +106,8 @@ def upgrade():
     sa.Column('customer_id', sa.Integer(), nullable=False),
     sa.Column('message', sa.String(), nullable=False),
     sa.Column('notification_type', sa.String(), nullable=False),
+    sa.Column('created_at', sa.DateTime(), server_default=sa.text('(CURRENT_TIMESTAMP)'), nullable=True),
+    sa.Column('updated_at', sa.DateTime(), nullable=True),
     sa.ForeignKeyConstraint(['customer_id'], ['customers.id'], ),
     sa.ForeignKeyConstraint(['user_id'], ['user.id'], ),
     sa.PrimaryKeyConstraint('id')
@@ -114,8 +118,8 @@ def upgrade():
     sa.Column('customer_id', sa.Integer(), nullable=False),
     sa.Column('invoice_id', sa.Integer(), nullable=False),
     sa.Column('amount_paid', sa.Integer(), nullable=False),
-    sa.Column('commission', sa.Integer(), nullable=False),
-    sa.Column('time_stamp', sa.DateTime(), server_default=sa.text('(CURRENT_TIMESTAMP)'), nullable=True),
+    sa.Column('created_at', sa.DateTime(), server_default=sa.text('(CURRENT_TIMESTAMP)'), nullable=True),
+    sa.Column('updated_at', sa.DateTime(), nullable=True),
     sa.ForeignKeyConstraint(['customer_id'], ['customers.id'], ),
     sa.ForeignKeyConstraint(['user_id'], ['user.id'], ),
     sa.PrimaryKeyConstraint('id')
@@ -130,6 +134,8 @@ def upgrade():
     sa.Column('customer_id', sa.Integer(), nullable=False),
     sa.Column('seller_id', sa.Integer(), nullable=False),
     sa.Column('importation_id', sa.Integer(), nullable=False),
+    sa.Column('created_at', sa.DateTime(), server_default=sa.text('(CURRENT_TIMESTAMP)'), nullable=True),
+    sa.Column('updated_at', sa.DateTime(), nullable=True),
     sa.ForeignKeyConstraint(['customer_id'], ['customers.id'], ),
     sa.ForeignKeyConstraint(['inventory_id'], ['inventories.id'], ),
     sa.ForeignKeyConstraint(['seller_id'], ['user.id'], ),
@@ -146,6 +152,8 @@ def upgrade():
     sa.Column('seller_id', sa.String(), nullable=False),
     sa.Column('inventory_id', sa.String(), nullable=False),
     sa.Column('promotions', sa.String(), nullable=False),
+    sa.Column('created_at', sa.DateTime(), server_default=sa.text('(CURRENT_TIMESTAMP)'), nullable=True),
+    sa.Column('updated_at', sa.DateTime(), nullable=True),
     sa.ForeignKeyConstraint(['customer_id'], ['customers.id'], ),
     sa.ForeignKeyConstraint(['inventory_id'], ['inventories.id'], ),
     sa.ForeignKeyConstraint(['seller_id'], ['user.id'], ),
@@ -160,7 +168,7 @@ def upgrade():
     sa.Column('tax', sa.Integer(), nullable=False),
     sa.Column('currency', sa.String(), nullable=False),
     sa.Column('seller_id', sa.Integer(), nullable=False),
-    sa.Column('sale_id', sa.Integer(), nullable=False),
+    sa.Column('sale_id', sa.Integer(), nullable=True),
     sa.Column('balance', sa.Integer(), nullable=False),
     sa.Column('total_amount', sa.Integer(), nullable=False),
     sa.Column('installments', sa.Integer(), nullable=False),
