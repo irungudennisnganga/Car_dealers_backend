@@ -184,23 +184,20 @@ class AllUsers(Resource):
     @jwt_required()
     def get(self):
         user_id = get_jwt_identity()
-
         check_user_role = User.query.filter_by(id=user_id).first()
+        
+        user = []  # Define user as an empty list by default
 
         if check_user_role.role == "admin":
-
             user = [{
                 'id': n.id,
                 'first_name': n.first_name,
                 'last_name': n.last_name,
                 'email': n.email,
                 'contact': n.contact,
-                'status':n.status
+                'status': n.status
             } for n in User.query.filter_by(role='seller').all()]
-
-            return user
-        if check_user_role.role == "super admin":
-
+        elif check_user_role.role == "super admin":
             user = [{
                 'id': n.id,
                 'first_name': n.first_name,
@@ -208,10 +205,8 @@ class AllUsers(Resource):
                 'email': n.email,
                 'role': n.role,
                 'contact': n.contact,
-                'status':n.status
+                'status': n.status
             } for n in User.query.all()]
-
-            return user
 
         return make_response(jsonify(user), 200)
 
@@ -941,7 +936,7 @@ class SaleResource(Resource):
                 
                 if customer and seller and inventory:
                     serialized_sale = {
-                        "id":sale.id,
+                        "id": sale.id,
                         "commision": sale.commision,
                         "status": sale.status,
                         "history": sale.history,
@@ -965,8 +960,86 @@ class SaleResource(Resource):
                     }
                     serialized_sales.append(serialized_sale)
             return make_response(jsonify(serialized_sales), 200)
+
+        elif check_user_role.role == "admin" and check_user_role.status == "active":
+            serialized_sales = []
+            sales = Sale.query.all()
+            customers = Customer.query.all()
+            customer_dict = {customer.id: customer for customer in customers}  # Create a dictionary for quick lookup
+            
+            for sale in sales:
+                customer = customer_dict.get(sale.customer_id)  # Get the specific customer for this sale
+                seller = User.query.filter_by(id=sale.seller_id).first()
+                inventory = Inventory.query.filter_by(id=sale.inventory_id).first()
+                
+                if customer and seller and inventory:
+                    serialized_sale = {
+                        "id": sale.id,
+                        "commision": sale.commision,
+                        "status": sale.status,
+                        "history": sale.history,
+                        "discount": sale.discount,
+                        "sale_date": sale.sale_date,
+                        "customer": {
+                            "id": customer.id,
+                            "Names": f'{customer.first_name} {customer.last_name}',
+                            "email": customer.email,
+                        },
+                        "seller": {
+                            "id": seller.id,
+                            "Names ": f'{seller.first_name} {seller.last_name}',
+                            "email": seller.email,
+                        },
+                        "inventory_id": {
+                            "id": inventory.id,
+                            "name": inventory.make
+                        },
+                        "promotions": sale.promotions,
+                    }
+                    serialized_sales.append(serialized_sale)
+            return make_response(jsonify(serialized_sales), 200)
+
+        elif check_user_role.role == "super admin" and check_user_role.status == "active":
+            serialized_sales = []
+            sales = Sale.query.all()
+            customers = Customer.query.all()
+            customer_dict = {customer.id: customer for customer in customers}  # Create a dictionary for quick lookup
+            
+            for sale in sales:
+                customer = customer_dict.get(sale.customer_id)  # Get the specific customer for this sale
+                seller = User.query.filter_by(id=sale.seller_id).first()
+                inventory = Inventory.query.filter_by(id=sale.inventory_id).first()
+                
+                if customer and seller and inventory:
+                    serialized_sale = {
+                        "id": sale.id,
+                        "commision": sale.commision,
+                        "status": sale.status,
+                        "history": sale.history,
+                        "discount": sale.discount,
+                        "sale_date": sale.sale_date,
+                        "customer": {
+                            "id": customer.id,
+                            "Names": f'{customer.first_name} {customer.last_name}',
+                            "email": customer.email,
+                        },
+                        "seller": {
+                            "id": seller.id,
+                            "Names ": f'{seller.first_name} {seller.last_name}',
+                            "email": seller.email,
+                        },
+                        "inventory_id": {
+                            "id": inventory.id,
+                            "name": inventory.make
+                        },
+                        "promotions": sale.promotions,
+                    }
+                    serialized_sales.append(serialized_sale)
+            return make_response(jsonify(serialized_sales), 200)
+
         else:
-            return make_response(jsonify({"message": "User unauthorized"}), 401)
+            return make_response(jsonify({'message': 'Unauthorized access!'}), 403)
+            
 
 class SaleReviewIfAlreadyCreated(Resource):
     @jwt_required()
