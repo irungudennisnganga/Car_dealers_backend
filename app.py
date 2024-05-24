@@ -1533,7 +1533,7 @@ class InvoiceCreate(Resource):
 
             balance = float(inventory.price) - float(paid)
             customer_id = data['customer_id']
-            
+            curr=data['currency']
             customer_details = Customer.query.get(customer_id)
             new_invoice = Invoice(
                 date_of_purchase=datetime.strptime(data['date_of_purchase'], "%Y-%m-%d"),
@@ -1541,7 +1541,7 @@ class InvoiceCreate(Resource):
                 amount_paid=paid,
                 fee=data['fee'],
                 tax=data['tax'],
-                currency=data['currency'],
+                currency=curr,
                 seller_id=user_id, 
                 sale_id=data['sale_id'], 
                 customer_id=customer_id,
@@ -1563,7 +1563,7 @@ class InvoiceCreate(Resource):
             # send email to the customer
             send_email(email=customer_details.email, 
                        subject=f'Inventory for {inventory.make} {inventory.model}', 
-                       body=f'Thank You for purchasing with us this car {inventory.make} {inventory.model}. You have currently paid {paid} remaining {balance}. Please complete the balance using the installments discussed during the purchase of the car. Remember to ask for the print out of your Invoice kindly! Thank you again')
+                       body=f'Thank You for purchasing with us this car {inventory.make} {inventory.model}. You have currently paid {curr} {paid} remaining{curr} {balance}. Please complete the balance using the installments discussed during the purchase of the car. Remember to ask for the print out of your Invoice kindly! Thank you again')
 
             return make_response(jsonify({'message': 'Invoice created successfully', 'invoice_id': new_invoice.id}), 201)
         except Exception as e:
