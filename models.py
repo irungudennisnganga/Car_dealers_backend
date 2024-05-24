@@ -218,7 +218,7 @@ class Receipt(db.Model, SerializerMixin):
     customer_id = db.Column(db.Integer, db.ForeignKey("customers.id"), nullable=False)
     invoice_id = db.Column(db.Integer, nullable=False)
     amount_paid = db.Column(db.Integer, nullable=False)
-    commission = db.Column(db.Integer, nullable=False)
+    # commission = db.Column(db.Integer, nullable=False)
     # time_stamp = db.Column(db.DateTime, server_default=db.func.now())
     created_at = db.Column(db.DateTime, server_default=db.func.now())
     updated_at = db.Column(db.DateTime, onupdate=db.func.now())
