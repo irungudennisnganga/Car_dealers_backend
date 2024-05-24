@@ -709,88 +709,117 @@ class Customers(Resource):
     @jwt_required()
     def get(self):
         # Get the current user's ID from the JWT token
-        current_user_id = get_jwt_identity()
-
+        user_id = get_jwt_identity()
+        check_user_role = User.query.filter_by(id=user_id).first()
         # Retrieve only the customers associated with the current seller (user)
-        customers = Customer.query.filter_by(seller_id=current_user_id).all()
-        
-        # Check if customers exist
-        if not customers:
-            return make_response(jsonify({'message': 'No customers found for this seller'}), 404)
+        if check_user_role.role == 'seller' and check_user_role.status == "active" :
 
-        # Serialize customer data
-        serialized_customers = [{
-            "id":customer.id,
-            "first_name": customer.first_name,
-            'last_name': customer.last_name,
-            'email': customer.email,
-            'address': customer.address,
-            'phone_number': customer.phone_number,
-            'image_file': customer.image
-        } for customer in customers]
+            # Retrieve only the customers associated with the current seller (user)
+            customers = Customer.query.filter_by(seller_id=user_id).all()
+            
+            # Check if customers exist
+            if not customers:
+                return make_response(jsonify({'message': 'No customers found for this seller'}), 404)
 
-        return make_response(jsonify(serialized_customers), 200)
+            # Serialize customer data
+            serialized_customers = [{
+                "id":customer.id,
+                "first_name": customer.first_name,
+                'last_name': customer.last_name,
+                'email': customer.email,
+                'address': customer.address,
+                'phone_number': customer.phone_number,
+                'image_file': customer.image
+            } for customer in customers]
+
+            return make_response(jsonify(serialized_customers), 200)
+        if check_user_role.role == 'super admin' and check_user_role.status == "active" or check_user_role.role == 'admin' and check_user_role.status == "active" :
+
+            # Retrieve only the customers associated with the current seller (user)
+            customers = Customer.query.all()
+            
+            # Check if customers exist
+            if not customers:
+                return make_response(jsonify({'message': 'No customers found for this seller'}), 404)
+
+            # Serialize customer data
+            serialized_customers = [{
+                "id":customer.id,
+                "first_name": customer.first_name,
+                'last_name': customer.last_name,
+                'email': customer.email,
+                'address': customer.address,
+                'phone_number': customer.phone_number,
+                'image_file': customer.image
+            } for customer in customers]
+
+            return make_response(jsonify(serialized_customers), 200)
+        else:
+            return make_response(jsonify({'message':"User unauthorized"}), 422)
     
     @jwt_required()  # Require JWT authentication
     def post(self):
+        
 
         user_id = get_jwt_identity()
+        check_user_role = User.query.filter_by(id=user_id).first()
+        # Retrieve only the customers associated with the current seller (user)
+        if check_user_role.role == 'seller' and check_user_role.status == "active" :
+            data = request.form
+            first_name = data.get('first_name')
+            last_name = data.get('last_name')
+            email = data.get('email')
+            address = data.get('address')
+            phone_number = data.get('contact')
+            image_file = request.files.get('image')
 
-        data = request.form
-        first_name = data.get('first_name')
-        last_name = data.get('last_name')
-        email = data.get('email')
-        address = data.get('address')
-        phone_number = data.get('phone_number')
-        image_file = request.files.get('image')
+            if not all([first_name, last_name, email, address, phone_number, image_file]):
+                return {'error': '422 Unprocessable Entity', 'message': 'Missing customer details'}, 422
 
-        if not all([first_name, last_name, email, address, phone_number, image_file]):
-            return {'error': '422 Unprocessable Entity', 'message': 'Missing customer details'}, 422
+            # Get the current user's ID from the JWT token
+            current_user_id = get_jwt_identity()
 
-        # Get the current user's ID from the JWT token
-        current_user_id = get_jwt_identity()
+            # Retrieve the user object from the database
+            user = User.query.filter_by(id=current_user_id).first()
 
-        # Retrieve the user object from the database
-        user = User.query.filter_by(id=current_user_id).first()
+            # Check if the user exists and has the role "seller"
+            if not user or user.role != "seller":
+                return {'error': '403 Forbidden', 'message': 'User is not authorized to add customer details'}, 403
 
-        # Check if the user exists and has the role "seller"
-        if not user or user.role != "seller":
-            return {'error': '403 Forbidden', 'message': 'User is not authorized to add customer details'}, 403
+            # Check if file uploaded and is an image
+            if image_file.filename == '':
+                return {'error': 'No image selected for upload'}, 400
 
-        # Check if file uploaded and is an image
-        if image_file.filename == '':
-            return {'error': 'No image selected for upload'}, 400
+            def allowed_file(filename):
+                return '.' in filename and filename.rsplit('.', 1)[1].lower() in {'png', 'jpg', 'jpeg', 'gif' ,'webp'}
 
-        def allowed_file(filename):
-            return '.' in filename and filename.rsplit('.', 1)[1].lower() in {'png', 'jpg', 'jpeg', 'gif'}
+            if not allowed_file(image_file.filename):
+                return {'error': 'Invalid file type. Only images are allowed'}, 400
 
-        if not allowed_file(image_file.filename):
-            return {'error': 'Invalid file type. Only images are allowed'}, 400
+            # Upload image to Cloudinary
+            try:
+                image_upload_result = cloudinary.uploader.upload(image_file)
+            except Exception as e:
+                return {'error': f'Error uploading image: {str(e)}'}, 500
 
-        # Upload image to Cloudinary
-        try:
-            image_upload_result = cloudinary.uploader.upload(image_file)
-        except Exception as e:
-            return {'error': f'Error uploading image: {str(e)}'}, 500
+            # Create a new customer object
+            new_customer = Customer(
+                first_name=first_name,
+                last_name=last_name,
+                email=email,
+                address=address,
+                phone_number=phone_number,
+                # Store Cloudinary URL
+                image=image_upload_result['secure_url'],
+                created_at=datetime.now(),
 
-        # Create a new customer object
-        new_customer = Customer(
-            first_name=first_name,
-            last_name=last_name,
-            email=email,
-            address=address,
-            phone_number=phone_number,
-            # Store Cloudinary URL
-            image=image_upload_result['secure_url'],
-            created_at=datetime.now(),
+                seller_id=user_id  # Assign the current user ID as the seller ID
+            )
 
-            seller_id=user_id  # Assign the current user ID as the seller ID
-        )
+            db.session.add(new_customer)
+            db.session.commit()
 
-        db.session.add(new_customer)
-        db.session.commit()
-
-        return {'message': 'Customer details added successfully'}, 201
+            return {'message': 'Customer details added successfully'}, 201
 class UpdateDetails(Resource):    
     @jwt_required()
     def put(self, customer_id):
@@ -938,7 +967,58 @@ class SaleResource(Resource):
             return make_response(jsonify(serialized_sales), 200)
         else:
             return make_response(jsonify({"message": "User unauthorized"}), 401)
-        
+
+class SaleReviewIfAlreadyCreated(Resource):
+    @jwt_required()
+    def get(self):
+        user_id = get_jwt_identity()
+
+        check_user_role = User.query.filter_by(id=user_id).first()
+
+        if check_user_role.role == 'seller' and check_user_role.status == "active":
+            serialized_sales = []
+            sales = Sale.query.filter_by(seller_id=check_user_role.id).all()
+            # if a sale has already an invoive it sould not appear
+            # for sale in sales:
+                
+            customers = Customer.query.all()
+            customer_dict = {customer.id: customer for customer in customers}  # Create a dictionary for quick lookup
+            
+            for sale in sales:
+                customer = customer_dict.get(sale.customer_id)  # Get the specific customer for this sale
+                seller = User.query.filter_by(id=sale.seller_id).first()
+                inventory = Inventory.query.filter_by(id=sale.inventory_id).first()
+
+                invoive =Invoice.query.filter_by(sale_id=sale.id).first()
+                
+                if not invoive:
+                    
+                    if customer and seller and inventory:
+                        serialized_sale = {
+                            "id":sale.id,
+                            "commision": sale.commision,
+                            "status": sale.status,
+                            "history": sale.history,
+                            "discount": sale.discount,
+                            "sale_date": sale.sale_date,
+                            "customer": {
+                                "id": customer.id,
+                                "Names": f'{customer.first_name} {customer.last_name}',
+                                "email": customer.email,
+                            },
+                            "seller": {
+                                "id": seller.id,
+                                "Names ": f'{seller.first_name} {seller.last_name}',
+                                "email": seller.email,
+                            },
+                            "inventory_id": {
+                                "id": inventory.id,
+                                "name": inventory.make
+                            },
+                            "promotions": sale.promotions,
+                        }
+                        serialized_sales.append(serialized_sale)
+            return make_response(jsonify(serialized_sales), 200)      
 
 class SaleItemResource(Resource):
     # PUT
@@ -1286,7 +1366,8 @@ class ReceiptAll(Resource):
                 customer_id=data.get('customer_id'),
                 invoice_id=data.get('invoice_id'),
                 amount_paid=data.get('amount_paid'),
-                time_stamp=datetime.now()
+                # remeber to correct here to caculate commission as expected
+                # commission=200
             )
 
             db.session.add(new_receipt)
@@ -1435,37 +1516,60 @@ class InvoiceCreate(Resource):
             return make_response(jsonify({'message': 'Unauthorized - Only sellers can create invoices'}), 403)
 
         data = request.get_json()
+        required_fields = ['date_of_purchase', 'method', 'amount_paid', 'fee', 'tax', 'currency', 'customer_id', 'vehicle_id', 'sale_id']
+
+        for field in required_fields:
+            if field not in data:
+                return make_response(jsonify({'message': f'Missing required field: {field}'}), 400)
+
         try:
+            # Fetch inventory by vehicle_id
+            id = data['vehicle_id']
+            paid = data['amount_paid']
+            inventory = Inventory.query.filter_by(id=id).first()
+
+            if not inventory:
+                return make_response(jsonify({'message': 'Invalid vehicle_id'}), 400)
+
+            balance = float(inventory.price) - float(paid)
+            customer_id = data['customer_id']
+            curr=data['currency']
+            customer_details = Customer.query.get(customer_id)
             new_invoice = Invoice(
-                date_of_purchase = datetime.strptime(data['date_of_purchase'], "%Y-%m-%d"),
+                date_of_purchase=datetime.strptime(data['date_of_purchase'], "%Y-%m-%d"),
                 method=data['method'],
-                amount_paid=data['amount_paid'],
+                amount_paid=paid,
                 fee=data['fee'],
                 tax=data['tax'],
-                currency=data['currency'],
+                currency=curr,
                 seller_id=user_id, 
                 sale_id=data['sale_id'], 
-                customer_id=data['customer_id'],
-                vehicle_id=data['vehicle_id'],
-                balance=data['balance'],
-                total_amount=data['total_amount'],
-                installments=data['installments'],
-                pending_cleared=data['pending_cleared'],
-                signature=data['signature'],
-                warranty=data['warranty'],
-                terms_and_conditions=data['terms_and_conditions'],
-                agreement_details=data['agreement_details'],
-                additional_accessories=data['additional_accessories'],
-                notes_instructions=data['notes_instructions'],
-                payment_proof=data['payment_proof'],
-                
+                customer_id=customer_id,
+                vehicle_id=id,
+                balance=balance,
+                total_amount=inventory.price,  # Use inventory price as total_amount
+                installments=data.get('installments'),  # Optional fields
+                pending_cleared=data.get('pending_cleared'),
+                signature=data.get('signature'),
+                warranty=data.get('warranty'),
+                terms_and_conditions=data.get('terms_and_conditions'),
+                agreement_details=data.get('agreement_details'),
+                additional_accessories=data.get('additional_accessories'),
+                notes_instructions=data.get('notes_instructions'),
+                payment_proof=data.get('payment_proof')
             )
             db.session.add(new_invoice)
             db.session.commit()
+            # send email to the customer
+            send_email(email=customer_details.email, 
+                       subject=f'Inventory for {inventory.make} {inventory.model}', 
+                       body=f'Thank You for purchasing with us this car {inventory.make} {inventory.model}. You have currently paid {curr} {paid} remaining{curr} {balance}. Please complete the balance using the installments discussed during the purchase of the car. Remember to ask for the print out of your Invoice kindly! Thank you again')
+
             return make_response(jsonify({'message': 'Invoice created successfully', 'invoice_id': new_invoice.id}), 201)
         except Exception as e:
-            return make_response(jsonify({'message': 'Failed to create invoice', 'error': str(e)}), 500)
-    
+            print(e)  # Log the exception for debugging
+            return make_response(jsonify({'message': 'Internal Server Error'}), 500)
+
 
 class GeneralInvoices(Resource):
     @jwt_required()
@@ -1952,7 +2056,7 @@ api.add_resource(AllInvoices, '/invoices')
 api.add_resource(GeneralInvoices, '/general')
 api.add_resource(AdminInvoice, '/userinvoice/<string:seller_name>')
 api.add_resource(DetailCustomer, '/customer')
-
+api.add_resource(SaleReviewIfAlreadyCreated, '/saleinvoice')
 
 if __name__ == "__main__":
     app.run(port=5555, debug=True)
