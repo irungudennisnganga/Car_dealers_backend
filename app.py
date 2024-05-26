@@ -92,7 +92,7 @@ class SignupUser(Resource):
         user_id = get_jwt_identity()
         check_user_role = User.query.filter_by(id=user_id).first()
 
-        if check_user_role.role not in ['admin', 'super admin']:
+        if check_user_role.role not in ['admin', 'super admin'] and check_user_role.status == 'active':
             return make_response(jsonify({'message': 'Unauthorized'}), 401)
 
         data = request.form
@@ -116,7 +116,7 @@ class SignupUser(Resource):
             return {'error': 'No image selected for upload'}, 400
 
         def allowed_file(filename):
-            return '.' in filename and filename.rsplit('.', 1)[1].lower() in {'png', 'jpg', 'jpeg', 'gif'}
+            return '.' in filename and filename.rsplit('.', 1)[1].lower() in {'png', 'jpg', 'jpeg', 'gif', 'webp'}
 
         if not allowed_file(image_file.filename):
             return {'error': 'Invalid file type. Only images are allowed'}, 400
@@ -151,7 +151,7 @@ class SignupUser(Resource):
 
 class UpdatePassword(Resource):
     def post(self):
-        data = request.get_json()
+        data = request.json
 
         user_email = data.get('email')
         former_password = data.get('former_password')
@@ -165,8 +165,7 @@ class UpdatePassword(Resource):
         if user is None:
             return make_response(jsonify({'message': 'User not found'}), 404)
 
-        # Assuming you are using a password hashing library like bcrypt
-        # Check if the former password matches
+        
         if not check_password_hash(user.password_hash, former_password):
             return make_response(jsonify({'message': 'Incorrect former password'}), 401)
 
@@ -188,7 +187,7 @@ class AllUsers(Resource):
         
         user = []  # Define user as an empty list by default
 
-        if check_user_role.role == "admin":
+        if check_user_role.role == "admin" and check_user_role.status == "active":
             user = [{
                 'id': n.id,
                 'first_name': n.first_name,
@@ -197,7 +196,7 @@ class AllUsers(Resource):
                 'contact': n.contact,
                 'status': n.status
             } for n in User.query.filter_by(role='seller').all()]
-        elif check_user_role.role == "super admin":
+        elif check_user_role.role == "super admin" and check_user_role.status == "active":
             user = [{
                 'id': n.id,
                 'first_name': n.first_name,
@@ -474,6 +473,7 @@ class INVENTORY(Resource):
         } for item in items]))
 
 
+# continue the README from here
 class inventory_update(Resource):
     @jwt_required()
     def put(self, id):
