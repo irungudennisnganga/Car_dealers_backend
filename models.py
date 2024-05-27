@@ -138,7 +138,7 @@ class Sale(db.Model, SerializerMixin):
     __tablename__ = 'sales'
     
     id = db.Column(db.Integer, primary_key=True)
-    commision = db.Column(db.Integer, nullable=False)
+    commision = db.Column(db.Integer, nullable=False, default=0)
     status = db.Column(db.String, nullable=False)
     history = db.Column(db.String, nullable=False)
     discount = db.Column(db.Integer, nullable=False)
@@ -218,8 +218,6 @@ class Receipt(db.Model, SerializerMixin):
     customer_id = db.Column(db.Integer, db.ForeignKey("customers.id"), nullable=False)
     invoice_id = db.Column(db.Integer, nullable=False)
     amount_paid = db.Column(db.Integer, nullable=False)
-    # commission = db.Column(db.Integer, nullable=False)
-    # time_stamp = db.Column(db.DateTime, server_default=db.func.now())
     created_at = db.Column(db.DateTime, server_default=db.func.now())
     updated_at = db.Column(db.DateTime, onupdate=db.func.now())
 

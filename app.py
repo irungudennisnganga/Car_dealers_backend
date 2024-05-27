@@ -1,4 +1,4 @@
-from models import User, Inventory, Importation, Customer, GalleryImage, Sale,Invoice,Receipt
+from models import User, Inventory, Importation, Customer, GalleryImage, Sale,Invoice,Receipt,Report
 from config import app, api, db, bcrypt
 from flask_restful import Resource
 from flask import request, jsonify, make_response
@@ -1295,14 +1295,14 @@ class OneSellerAdmin(Resource):
         else:
             return make_response(jsonify({"message":"User unauthorized"}), 401)  
 
-class Report(Resource):
+class ReportRoute(Resource):
     # POST
     @jwt_required()
     def post(self):
         user_id = get_jwt_identity()
-
         check_user_role = User.query.filter_by(id=user_id).first()
-        if check_user_role.role == 'admin' and check_user_role.status == "active" or check_user_role.role == 'super admin' and check_user_role.status == "active":
+
+        if check_user_role and (check_user_role.role in ['admin', 'super admin'] and check_user_role.status == "active"):
             data = request.get_json()
 
             company_profit = data.get('company_profit')
@@ -1313,12 +1313,12 @@ class Report(Resource):
             seller_id = data.get('seller_id')
             importation_id = data.get('importation_id')
             
-            if not all([company_profit, sales_id, expenses, sale_date]):
+            if not all([company_profit, sales_id, expenses, sale_date, customer_id, seller_id, importation_id]):
                 return make_response(jsonify({'message': 'Please provide all required data'}), 400)
 
             new_report = Report(
                 company_profit=company_profit,
-                sales_id=sales_id,
+                sale_id=sales_id,
                 expenses=expenses,
                 sale_date=sale_date,
                 customer_id=customer_id,
@@ -1333,57 +1333,94 @@ class Report(Resource):
         else:
             return make_response(jsonify({'message': 'User has no access rights to create a report'}), 401)
 
-  # GET
-@jwt_required()
-def get(self):
-    user_id = get_jwt_identity()
+    # GET
+    @jwt_required()
+    def get(self):
+        user_id = get_jwt_identity()
+        check_user_role = User.query.filter_by(id=user_id).first()
 
-    check_user_role = User.query.filter_by(id=user_id).first()
+        if check_user_role and (check_user_role.role in ['admin', 'super admin'] and check_user_role.status == "active"):
+            reports = Report.query.all()
+            serialized_reports = []
+            for report in reports:
+                customer = Customer.query.filter_by(id=report.customer_id).first()
+                seller = User.query.filter_by(id=report.seller_id).first()
+                importation = Importation.query.filter_by(id=report.importation_id).first()
+                sale = Sale.query.filter_by(id=report.sale_id).first()
 
-    if check_user_role.role == 'admin' and check_user_role.status == "active" or check_user_role.role == 'super admin' and check_user_role.status == "active":
-        reports = Report.query.all()
-        serialized_reports = []
-        for report in reports:
-            customer = Customer.query.filter_by(id=report.customer_id).first()
-            seller = User.query.filter_by(id=report.seller_id).first()
-            importation = Importation.query.filter_by(id=report.importation_id).first()
-            sale = Sale.query.filter_by(id=report.sales_id).first()
-
-            serialized_report = {
-                'id': report.id,
-                'company_profit': report.company_profit,
-                'expenses': report.expenses,
-                'sale_date': report.sale_date,
-                'customer': {
-                    'id': customer.id,
-                    'Names': f'{customer.first_name} {customer.last_name}',
-                    'email': customer.email,
-                },
-                'seller': {
-                    'id': seller.id,
-                    'Names': f'{seller.first_name} {seller.last_name}',
-                    'email': seller.email,
-                },
-                'importation': {
-                    'id': importation.id,
-                    'name': importation.name,
-                },
-                'sale': {
-                    'id': sale.id,
-                    'commision': sale.commision,
-                    'status': sale.status,
-                    'history': sale.history,
-                    'discount': sale.discount,
-                    'sale_date': sale.sale_date,
-                    'promotions': sale.promotions,
+                serialized_report = {
+                    'id': report.id,
+                    'company_profit': report.company_profit,
+                    'expenses': report.expenses,
+                    'sale_date': report.sale_date,
+                    'customer': {
+                        'id': customer.id if customer else None,
+                        'Names': f'{customer.first_name} {customer.last_name}' if customer else None,
+                        'email': customer.email if customer else None,
+                    },
+                    'seller': {
+                        'id': seller.id if seller else None,
+                        'Names': f'{seller.first_name} {seller.last_name}' if seller else None,
+                        'email': seller.email if seller else None,
+                    },
+                    'importation': {
+                        'id': importation.id if importation else None,
+                        'name': importation.country_of_origin if importation else None,
+                    },
+                    'sale': {
+                        'id': sale.id if sale else None,
+                        'commision': sale.commision if sale else None,
+                        'status': sale.status if sale else None,
+                        'history': sale.history if sale else None,
+                        'discount': sale.discount if sale else None,
+                        'sale_date': sale.sale_date if sale else None,
+                        'promotions': sale.promotions if sale else None,
+                    }
                 }
-            }
-            serialized_reports.append(serialized_report)
-        return make_response(jsonify(serialized_reports), 200)
-    else:
-        return make_response(jsonify({'message': 'User unauthorized'}), 401)
+                serialized_reports.append(serialized_report)
+            return make_response(jsonify(serialized_reports), 200)
+        elif check_user_role.role =='seller':
+            reports = Report.query.filter_by(seller_id=user_id).all()
+            serialized_reports = []
+            for report in reports:
+                customer = Customer.query.filter_by(id=report.customer_id).first()
+                seller = User.query.filter_by(id=report.seller_id).first()
+                importation = Importation.query.filter_by(id=report.importation_id).first()
+                sale = Sale.query.filter_by(id=report.sale_id).first()
 
-
+                serialized_report = {
+                    'id': report.id,
+                    'company_profit': report.company_profit,
+                    'expenses': report.expenses,
+                    'sale_date': report.sale_date,
+                    'customer': {
+                        'id': customer.id if customer else None,
+                        'Names': f'{customer.first_name} {customer.last_name}' if customer else None,
+                        'email': customer.email if customer else None,
+                    },
+                    'seller': {
+                        'id': seller.id if seller else None,
+                        'Names': f'{seller.first_name} {seller.last_name}' if seller else None,
+                        'email': seller.email if seller else None,
+                    },
+                    'importation': {
+                        'id': importation.id if importation else None,
+                        'name': importation.country_of_origin if importation else None,
+                    },
+                    'sale': {
+                        'id': sale.id if sale else None,
+                        'commision': sale.commision if sale else None,
+                        'status': sale.status if sale else None,
+                        'history': sale.history if sale else None,
+                        'discount': sale.discount if sale else None,
+                        'sale_date': sale.sale_date if sale else None,
+                        'promotions': sale.promotions if sale else None,
+                    }
+                }
+                serialized_reports.append(serialized_report)
+            return make_response(jsonify(serialized_reports), 200)
+        else:
+            return make_response(jsonify({'message': 'User unauthorized'}), 401)
 class Report_update(Resource):
     # PATCH
     @jwt_required()
@@ -2115,7 +2152,7 @@ api.add_resource(UpdateDetails, '/updatedetails/<int:customer_id>')
 api.add_resource(DeleteDetails, '/deletedetails/<int:customer_id>')
 api.add_resource(AdminSales, '/sellers')
 api.add_resource(OneSellerAdmin, '/seller/<int:sale_id>')
-api.add_resource(Report, '/report')
+api.add_resource(ReportRoute, '/report')
 api.add_resource(Report_update, '/report/<int:id>')
 api.add_resource(ReceiptAll, '/receipt')
 api.add_resource(Receipt_update, '/receipt/<int:id>')
