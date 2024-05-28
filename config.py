@@ -7,7 +7,7 @@ from flask_sqlalchemy import SQLAlchemy
 from flask_jwt_extended import JWTManager,create_access_token,get_jwt_identity,jwt_required
 from flask_bcrypt import Bcrypt
 from datetime import timedelta
-# from flask_marshmallow import Marshmallow
+from flask_marshmallow import Marshmallow
 
 
 app = Flask(__name__) #instanciate a flask application 
@@ -25,7 +25,7 @@ jwt  = JWTManager(app)
 
 # Initialize extensions
 db = SQLAlchemy(app)
-# ma = Marshmallow(app)
+ma = Marshmallow(app)
 migrate = Migrate(app, db)
 bcrypt = Bcrypt(app)
 # jwt = JWTManager(app)

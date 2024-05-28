@@ -3,7 +3,9 @@ from config import app, api, db, bcrypt
 from flask_restful import Resource
 from flask import request, jsonify, make_response
 from flask_bcrypt import check_password_hash, generate_password_hash
+from schemas import InvoiceSchema, InventorySchema, UserSchema, CustomerSchema, SaleSchema, ReceiptSchema
 from flask_jwt_extended import JWTManager, create_access_token, get_jwt_identity, jwt_required
+from flask_marshmallow import Marshmallow
 import cloudinary
 import cloudinary.uploader
 import cloudinary.api
@@ -2132,34 +2134,72 @@ class Notification_update(Resource):
 class Search(Resource):
     @jwt_required()
     def post(self):
+        user_id = get_jwt_identity()
         query = request.args.get('query')
         current_path = request.args.get('currentPath')
         
         if not query:
             return {'error': 'Query parameter is required'}, 400
 
+        check_user_role = User.query.filter_by(id=user_id).first()
+
+        if not check_user_role or check_user_role.status != "active":
+            return {'error': 'Unauthorized access'}, 403
+
         result = []
 
-        if current_path == '/invoice':
-            result = Invoice.query.filter(Invoice.id.ilike(f'%{query}%')).all()
-            
-        elif current_path == '/inventory':
-            result = Inventory.query.filter(Inventory.make.ilike(f'%{query}%')).all()
-            
-        elif current_path == '/workers':
-            result = User.query.filter(User.first_name.ilike(f'%{query}%')).all()
-        elif current_path == '/customers':
-            result = Customer.query.filter(Customer.first_name.ilike(f'%{query}%')).all()
-        elif current_path == '/sales':
-            result = Sale.query.filter(Sale.history.ilike(f'%{query}%')).all()
-        elif current_path == '/receipt':
-            result = Receipt.query.filter(Receipt.amount_paid.ilike(f'%{query}%')).all()
-        else:
-            return {'error': 'Invalid path'}, 400
-        # print(current_path)
-        print(result)
+        if check_user_role.role in ['admin', 'super admin'] and check_user_role.status == 'active':
+            if current_path == '/invoice':
+                result = Invoice.query.filter(Invoice.id.ilike(f'%{query}%')).all()
+                schema = InvoiceSchema(many=True)
+            elif current_path == '/inventory':
+                result = Inventory.query.filter(Inventory.make.ilike(f'%{query}%')).all()
+                schema = InventorySchema(many=True)
+            elif current_path == '/workers':
+                result = User.query.filter(User.first_name.ilike(f'%{query}%')).all()
+                schema = UserSchema(many=True)
+            elif current_path == '/customers':
+                result = Customer.query.filter(Customer.first_name.ilike(f'%{query}%')).all()
+                schema = CustomerSchema(many=True)
+            elif current_path == '/sales':
+                result = Sale.query.filter(Sale.history.ilike(f'%{query}%')).all()
+                schema = SaleSchema(many=True)
+            elif current_path == '/receipt':
+                result = Receipt.query.filter(Receipt.amount_paid.ilike(f'%{query}%')).all()
+                schema = ReceiptSchema(many=True)
+            else:
+                return {'error': 'Invalid path'}, 400
 
-        # return jsonify([item.to_dict() for item in items])
+        elif check_user_role.role == 'seller' and check_user_role.status == 'active':
+            if current_path == '/invoice':
+                result = Invoice.query.filter(Invoice.seller_id == user_id, Invoice.id.ilike(f'%{query}%')).all()
+                schema = InvoiceSchema(many=True)
+            elif current_path == '/inventory':
+                result = Inventory.query.filter(Inventory.make.ilike(f'%{query}%')).all()
+                schema = InventorySchema(many=True)
+            elif current_path == '/workers':
+                result = User.query.filter(User.role == "seller", User.first_name.ilike(f'%{query}%')).all()
+                schema = UserSchema(many=True)
+            elif current_path == '/customers':
+                result = Customer.query.filter(Customer.seller_id == user_id, Customer.first_name.ilike(f'%{query}%')).all()
+                schema = CustomerSchema(many=True)
+            elif current_path == '/sales':
+                result = Sale.query.filter(Sale.seller_id == user_id, Sale.history.ilike(f'%{query}%')).all()
+                schema = SaleSchema(many=True)
+            elif current_path == '/receipt':
+                result = Receipt.query.filter(Receipt.user_id == user_id, Receipt.amount_paid.ilike(f'%{query}%')).all()
+                schema = ReceiptSchema(many=True)
+            else:
+                return {'error': 'Invalid path'}, 400
+
+        else:
+            return {'error': 'Unauthorized access'}, 403
+        print(schema.dump(result))
+        return jsonify(schema.dump(result))
+
+        
+        
+
 
 
 
