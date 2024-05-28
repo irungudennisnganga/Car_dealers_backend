@@ -2153,13 +2153,13 @@ class Search(Resource):
                 result = Invoice.query.filter(Invoice.id.ilike(f'%{query}%')).all()
                 schema = InvoiceSchema(many=True)
             elif current_path == '/inventory':
-                result = Inventory.query.filter(Inventory.make.ilike(f'%{query}%')).all()
+                result = Inventory.query.filter(Inventory.make.ilike(f'%{query}%') | Inventory.model.ilike(f'%{query}%')).all()
                 schema = InventorySchema(many=True)
             elif current_path == '/workers':
-                result = User.query.filter(User.first_name.ilike(f'%{query}%')).all()
+                result = User.query.filter(User.first_name.ilike(f'%{query}%') | User.last_name.ilike(f'%{query}%')).all()
                 schema = UserSchema(many=True)
             elif current_path == '/customers':
-                result = Customer.query.filter(Customer.first_name.ilike(f'%{query}%')).all()
+                result = Customer.query.filter(Customer.first_name.ilike(f'%{query}%') |Customer.last_name.ilike(f'%{query}%')).all()
                 schema = CustomerSchema(many=True)
             elif current_path == '/sales':
                 result = Sale.query.filter(Sale.history.ilike(f'%{query}%')).all()
@@ -2175,13 +2175,13 @@ class Search(Resource):
                 result = Invoice.query.filter(Invoice.seller_id == user_id, Invoice.id.ilike(f'%{query}%')).all()
                 schema = InvoiceSchema(many=True)
             elif current_path == '/inventory':
-                result = Inventory.query.filter(Inventory.make.ilike(f'%{query}%')).all()
+                result = Inventory.query.filter(Inventory.make.ilike(f'%{query}%') |Inventory.model.ilike(f'%{query}%') ).all()
                 schema = InventorySchema(many=True)
             elif current_path == '/workers':
-                result = User.query.filter(User.role == "seller", User.first_name.ilike(f'%{query}%')).all()
+                result = User.query.filter(User.role == "seller", User.first_name.ilike(f'%{query}%' ) |User.last_name.ilike(f'%{query}%' )).all()
                 schema = UserSchema(many=True)
             elif current_path == '/customers':
-                result = Customer.query.filter(Customer.seller_id == user_id, Customer.first_name.ilike(f'%{query}%')).all()
+                result = Customer.query.filter(Customer.seller_id == user_id, Customer.first_name.ilike(f'%{query}%') | Customer.last_name.ilike(f'%{query}%')).all()
                 schema = CustomerSchema(many=True)
             elif current_path == '/sales':
                 result = Sale.query.filter(Sale.seller_id == user_id, Sale.history.ilike(f'%{query}%')).all()
@@ -2194,7 +2194,7 @@ class Search(Resource):
 
         else:
             return {'error': 'Unauthorized access'}, 403
-        print(schema.dump(result))
+        # print(schema.dump(result))
         return jsonify(schema.dump(result))
 
         
