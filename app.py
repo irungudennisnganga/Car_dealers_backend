@@ -2129,12 +2129,42 @@ class Notification_update(Resource):
             return make_response(jsonify({'message': 'User unauthorized'}), 401)
 
         
+class Search(Resource):
+    @jwt_required()
+    def post(self):
+        query = request.args.get('query')
+        current_path = request.args.get('currentPath')
+        
+        if not query:
+            return {'error': 'Query parameter is required'}, 400
+
+        result = []
+
+        if current_path == '/invoice':
+            result = Invoice.query.filter(Invoice.id.ilike(f'%{query}%')).all()
+            
+        elif current_path == '/inventory':
+            result = Inventory.query.filter(Inventory.make.ilike(f'%{query}%')).all()
+            
+        elif current_path == '/workers':
+            result = User.query.filter(User.first_name.ilike(f'%{query}%')).all()
+        elif current_path == '/customers':
+            result = Customer.query.filter(Customer.first_name.ilike(f'%{query}%')).all()
+        elif current_path == '/sales':
+            result = Sale.query.filter(Sale.history.ilike(f'%{query}%')).all()
+        elif current_path == '/receipt':
+            result = Receipt.query.filter(Receipt.amount_paid.ilike(f'%{query}%')).all()
+        else:
+            return {'error': 'Invalid path'}, 400
+        # print(current_path)
+        print(result)
+
+        # return jsonify([item.to_dict() for item in items])
 
 
 
 
-
-
+api.add_resource(Search, '/search')
 api.add_resource(CheckSession, '/checksession')
 api.add_resource(AllUsers, '/users')
 api.add_resource(OneUser, '/user/<int:id>')
