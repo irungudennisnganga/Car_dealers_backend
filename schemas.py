@@ -11,6 +11,13 @@ class UserSchema(Schema):
     contact = fields.String(required=True)
     created_at = fields.DateTime(dump_only=True)
     updated_at = fields.DateTime(dump_only=True)
+    inventory = fields.Nested('InventorySchema', many=True)
+    sales = fields.Nested('SaleSchema', many=True)
+    invoices = fields.Nested('InvoiceSchema', many=True)
+    reports = fields.Nested('ReportSchema', many=True)
+    notifications = fields.Nested('NotificationSchema', many=True)
+    receipts = fields.Nested('ReceiptSchema', many=True)
+    customers = fields.Nested('CustomerSchema', many=True)
 
 class InventorySchema(Schema):
     id = fields.Integer(dump_only=True)
@@ -29,7 +36,6 @@ class InventorySchema(Schema):
     engine_size = fields.String(required=True)
     drive_type = fields.String(required=True)
     trim_level = fields.String(required=True)
-    gallery = fields.String()
     condition = fields.String(required=True)
     availability = fields.String(required=True)
     cylinder = fields.Integer()
@@ -41,6 +47,11 @@ class InventorySchema(Schema):
     user_id = fields.Integer(dump_only=True)
     created_at = fields.DateTime(dump_only=True)
     updated_at = fields.DateTime(dump_only=True)
+    importation = fields.Nested('ImportationSchema', many=True)
+    sales = fields.Nested('SaleSchema', many=True)
+    invoices = fields.Nested('InvoiceSchema', many=True)
+    reports = fields.Nested('ReportSchema', many=True)
+    gallery = fields.Nested('GalleryImageSchema', many=True)
 
 class ImportationSchema(Schema):
     id = fields.Integer(dump_only=True)
@@ -65,6 +76,11 @@ class CustomerSchema(Schema):
     seller_id = fields.Integer(dump_only=True)
     created_at = fields.DateTime(dump_only=True)
     updated_at = fields.DateTime(dump_only=True)
+    sales = fields.Nested('SaleSchema', many=True)
+    invoices = fields.Nested('InvoiceSchema', many=True)
+    reports = fields.Nested('ReportSchema', many=True)
+    notifications = fields.Nested('NotificationSchema', many=True)
+    receipts = fields.Nested('ReceiptSchema', many=True)
 
 class SaleSchema(Schema):
     id = fields.Integer(dump_only=True)
@@ -74,11 +90,12 @@ class SaleSchema(Schema):
     discount = fields.Integer(required=True)
     sale_date = fields.String(required=True)
     customer_id = fields.Integer(dump_only=True)
-    seller_id = fields.String(dump_only=True)
-    inventory_id = fields.String(dump_only=True)
+    seller_id = fields.Integer(dump_only=True)
+    inventory_id = fields.Integer(dump_only=True)
     promotions = fields.String(required=True)
     created_at = fields.DateTime(dump_only=True)
     updated_at = fields.DateTime(dump_only=True)
+    invoices = fields.Nested('InvoiceSchema', many=True)
 
 class InvoiceSchema(Schema):
     id = fields.Integer(dump_only=True)
@@ -88,14 +105,10 @@ class InvoiceSchema(Schema):
     fee = fields.Integer(required=True)
     tax = fields.Integer(required=True)
     currency = fields.String(required=True)
-    seller_id = fields.Integer(dump_only=True)
-    sale_id = fields.Integer(dump_only=True)
     balance = fields.Integer(required=True)
     total_amount = fields.Integer(required=True)
     installments = fields.Integer(required=True)
     pending_cleared = fields.String(required=True)
-    customer_id = fields.Integer(dump_only=True)
-    vehicle_id = fields.Integer(dump_only=True)
     signature = fields.String(required=True)
     warranty = fields.String(required=True)
     terms_and_conditions = fields.String(required=True)
@@ -105,6 +118,12 @@ class InvoiceSchema(Schema):
     payment_proof = fields.String(required=True)
     created_at = fields.DateTime(dump_only=True)
     updated_at = fields.DateTime(dump_only=True)
+
+    seller = fields.Nested('UserSchema', dump_only=True)
+    sale = fields.Nested('SaleSchema', dump_only=True)
+    customer = fields.Nested('CustomerSchema', dump_only=True)
+    vehicle = fields.Nested('InventorySchema', dump_only=True)
+
 
 class ReportSchema(Schema):
     id = fields.Integer(dump_only=True)

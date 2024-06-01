@@ -1617,6 +1617,57 @@ class Receipt_update(Resource):
             
         else:
             return make_response(jsonify({'message': 'User unauthorized'}), 401)
+        
+class OneReceipt(Resource):
+    @jwt_required()
+    def get(self, id):
+        user_id = get_jwt_identity()
+
+        check_user_role = User.query.filter_by(id=user_id).first()
+        
+        if not check_user_role or check_user_role.status != "active":
+            return make_response(jsonify({'message': 'User unauthorized'}), 401)
+
+        if check_user_role.role in ['admin', 'super admin']:
+            receipt = Receipt.query.filter_by(id=id).first()
+        elif check_user_role.role == 'seller':
+            receipt = Receipt.query.filter_by(user_id=user_id, id=id).first()
+        else:
+            return make_response(jsonify({'message': 'User unauthorized'}), 401)
+
+        if not receipt:
+            return make_response(jsonify({'message': 'Receipt not found'}), 404)
+
+        customer = Customer.query.filter_by(id=receipt.customer_id).first()
+        invoice = Invoice.query.filter_by(id=receipt.invoice_id).first()
+        user = User.query.filter_by(id=receipt.user_id).first()
+
+        if not (customer and invoice and user):
+            return make_response(jsonify({'message': 'Data inconsistency detected'}), 500)
+
+        serialized_receipt = {
+            'id': receipt.id,
+            'user': {
+                'id': user.id,
+                'names': f'{user.first_name} {user.last_name}',
+                'email': user.email,
+            },
+            'customer': {
+                'id': customer.id,
+                'Names': f'{customer.first_name} {customer.last_name}',
+                'email': customer.email,
+            },
+            'invoice': {
+                'id': invoice.id,
+                'amount_paid': invoice.amount_paid,
+                'total_amount': invoice.total_amount,  # Assuming this field exists
+                'balance': invoice.balance,  # Assuming this field exists
+            },
+            'amount_paid': receipt.amount_paid,
+            'created_at': receipt.created_at
+        }
+
+        return make_response(jsonify(serialized_receipt), 200)
 
 class InvoiceCreate(Resource):
     @jwt_required()
@@ -2149,56 +2200,106 @@ class Search(Resource):
         result = []
 
         if check_user_role.role in ['admin', 'super admin'] and check_user_role.status == 'active':
-            if current_path == '/invoice':
-                result = Invoice.query.filter(Invoice.id.ilike(f'%{query}%')).all()
+            if current_path.startswith('/invoice/'):
+                # print(current_path[9:])
+                user =User.query.filter_by(first_name=current_path[9:]).first()
+                result = Invoice.query.filter_by(seller_id=user.id).join(Sale).join(Customer).join(User).join(Inventory).filter(
+                    Invoice.id.ilike(f'%{query}%') |
+                    Sale.id.ilike(f'%{query}%') |
+                    Customer.first_name.ilike(f'%{query}%') |
+                    Customer.last_name.ilike(f'%{query}%') |
+                    User.first_name.ilike(f'%{query}%') |
+                    User.last_name.ilike(f'%{query}%') |
+                    Inventory.make.ilike(f'%{query}%') |
+                    Inventory.model.ilike(f'%{query}%')
+                ).all()
                 schema = InvoiceSchema(many=True)
             elif current_path == '/inventory':
-                result = Inventory.query.filter(Inventory.make.ilike(f'%{query}%') | Inventory.model.ilike(f'%{query}%')).all()
+                result = Inventory.query.filter(
+                    Inventory.make.ilike(f'%{query}%') | 
+                    Inventory.model.ilike(f'%{query}%')
+                ).all()
                 schema = InventorySchema(many=True)
             elif current_path == '/workers':
-                result = User.query.filter(User.first_name.ilike(f'%{query}%') | User.last_name.ilike(f'%{query}%')).all()
+                result = User.query.filter(
+                    User.first_name.ilike(f'%{query}%') | 
+                    User.last_name.ilike(f'%{query}%')
+                ).all()
                 schema = UserSchema(many=True)
             elif current_path == '/customers':
-                result = Customer.query.filter(Customer.first_name.ilike(f'%{query}%') |Customer.last_name.ilike(f'%{query}%')).all()
+                result = Customer.query.filter(
+                    Customer.first_name.ilike(f'%{query}%') | 
+                    Customer.last_name.ilike(f'%{query}%')
+                ).all()
                 schema = CustomerSchema(many=True)
             elif current_path == '/sales':
-                result = Sale.query.filter(Sale.history.ilike(f'%{query}%')).all()
+                result = Sale.query.filter(
+                    Sale.history.ilike(f'%{query}%')
+                ).all()
                 schema = SaleSchema(many=True)
             elif current_path == '/receipt':
-                result = Receipt.query.filter(Receipt.amount_paid.ilike(f'%{query}%')).all()
+                result = Receipt.query.filter(
+                    Receipt.amount_paid.ilike(f'%{query}%')
+                ).all()
                 schema = ReceiptSchema(many=True)
             else:
                 return {'error': 'Invalid path'}, 400
 
         elif check_user_role.role == 'seller' and check_user_role.status == 'active':
             if current_path == '/invoice':
-                result = Invoice.query.filter(Invoice.seller_id == user_id, Invoice.id.ilike(f'%{query}%')).all()
+                result = Invoice.query.join(Sale).join(Customer).join(User).join(Inventory).filter(
+                    Invoice.seller_id == user_id,
+                    (
+                        
+                        Customer.first_name.ilike(f'%{query}%') |
+                        Customer.last_name.ilike(f'%{query}%') |
+                        User.first_name.ilike(f'%{query}%') |
+                        User.last_name.ilike(f'%{query}%') |
+                        Inventory.make.ilike(f'%{query}%') |
+                        Inventory.model.ilike(f'%{query}%')
+                    )
+                ).all()
                 schema = InvoiceSchema(many=True)
             elif current_path == '/inventory':
-                result = Inventory.query.filter(Inventory.make.ilike(f'%{query}%') |Inventory.model.ilike(f'%{query}%') ).all()
+                result = Inventory.query.filter(
+                    Inventory.make.ilike(f'%{query}%') | 
+                    Inventory.model.ilike(f'%{query}%')
+                ).all()
                 schema = InventorySchema(many=True)
             elif current_path == '/workers':
-                result = User.query.filter(User.role == "seller", User.first_name.ilike(f'%{query}%' ) |User.last_name.ilike(f'%{query}%' )).all()
+                result = User.query.filter(
+                    User.role == "seller",
+                    User.first_name.ilike(f'%{query}%') | 
+                    User.last_name.ilike(f'%{query}%')
+                ).all()
                 schema = UserSchema(many=True)
             elif current_path == '/customers':
-                result = Customer.query.filter(Customer.seller_id == user_id, Customer.first_name.ilike(f'%{query}%') | Customer.last_name.ilike(f'%{query}%')).all()
+                result = Customer.query.filter(
+                    Customer.seller_id == user_id,
+                    Customer.first_name.ilike(f'%{query}%') | 
+                    Customer.last_name.ilike(f'%{query}%')
+                ).all()
                 schema = CustomerSchema(many=True)
             elif current_path == '/sales':
-                result = Sale.query.filter(Sale.seller_id == user_id, Sale.history.ilike(f'%{query}%')).all()
+                result = Sale.query.filter(
+                    Sale.seller_id == user_id,
+                    Sale.history.ilike(f'%{query}%')
+                ).all()
                 schema = SaleSchema(many=True)
             elif current_path == '/receipt':
-                result = Receipt.query.filter(Receipt.user_id == user_id, Receipt.amount_paid.ilike(f'%{query}%')).all()
+                result = Receipt.query.filter(
+                    Receipt.user_id == user_id,
+                    Receipt.amount_paid.ilike(f'%{query}%')
+                ).all()
                 schema = ReceiptSchema(many=True)
             else:
                 return {'error': 'Invalid path'}, 400
 
         else:
             return {'error': 'Unauthorized access'}, 403
-        # print(schema.dump(result))
+
         return jsonify(schema.dump(result))
 
-        
-        
 
 
 
@@ -2237,6 +2338,7 @@ api.add_resource(GeneralInvoices, '/general')
 api.add_resource(AdminInvoice, '/userinvoice/<string:seller_name>')
 api.add_resource(DetailCustomer, '/customer')
 api.add_resource(SaleReviewIfAlreadyCreated, '/saleinvoice')
+api.add_resource(OneReceipt, '/receipts/<int:id>')
 
 if __name__ == "__main__":
     app.run(port=5555, debug=True)
