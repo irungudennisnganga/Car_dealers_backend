@@ -106,11 +106,13 @@ class Importation(db.Model, SerializerMixin):
     transport_fee = db.Column(db.Integer, nullable=False)
     currency = db.Column(db.String, nullable=False)
     import_duty = db.Column(db.Integer, nullable=False)
-    import_date = db.Column(db.String, nullable=False)
-    import_document = db.Column(db.String, nullable=False)
+    # import_document = db.Column(db.String, nullable=False)
     car_id = db.Column(db.Integer, db.ForeignKey("inventories.id"), nullable=False)
+    expense = db.Column(db.String, nullable=False)
     created_at = db.Column(db.DateTime, server_default=db.func.now())
     updated_at = db.Column(db.DateTime, onupdate=db.func.now())
+    
+    report = db.relationship('Report' ,backref='importations')
 
     
 class Customer(db.Model, SerializerMixin):
@@ -188,12 +190,10 @@ class Report(db.Model, SerializerMixin):
     id = db.Column(db.Integer, primary_key=True)
     company_profit = db.Column(db.Integer, nullable=False)
     sale_id = db.Column(db.Integer, nullable=False)
-    expenses = db.Column(db.Integer, nullable=False)
     inventory_id = db.Column(db.Integer, db.ForeignKey("inventories.id"), nullable=False)
-    sale_date = db.Column(db.Integer, nullable=False)
     customer_id = db.Column(db.Integer, db.ForeignKey("customers.id"), nullable=False)
     seller_id = db.Column(db.Integer, db.ForeignKey("user.id"), nullable=False)
-    importation_id = db.Column(db.Integer, nullable=False)
+    importation_id = db.Column(db.Integer,db.ForeignKey("importations.id"), nullable=False)
     created_at = db.Column(db.DateTime, server_default=db.func.now())
     updated_at = db.Column(db.DateTime, onupdate=db.func.now())
 

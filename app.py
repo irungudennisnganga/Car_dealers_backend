@@ -221,10 +221,12 @@ class OneUser(Resource):
 
         check_user_role = User.query.filter_by(id=user_id).first()
         
-        if check_user_role.role == "admin" and check_user_role.status == "active"  or  check_user_role.role == "seller" and check_user_role.status == "active"  :
+        if check_user_role.role == "admin" and check_user_role.status == "active"   :
             user = User.query.filter_by(id=id, role='seller').first()
         elif check_user_role.role == "super admin" and check_user_role.status == "active":
             user = User.query.filter_by(id=id).first()
+        elif check_user_role.role == "seller" and check_user_role.status == "active":
+            user = User.query.filter_by(id=user_id, role='seller').first()
         else:
             return make_response(jsonify({"message": "Un Authorized User"}), 401)
         
@@ -234,7 +236,7 @@ class OneUser(Resource):
         if not user:
             return {"message": "No user found"}
 
-        sales = Sale.query.filter_by(seller_id=user.id, status="completed").all()
+        sales = Sale.query.filter_by(seller_id=user.id).all()
         number_of_sales = len(sales)
         total_commission = sum(sale.commision for sale in sales) 
         
@@ -371,36 +373,51 @@ class OneUser(Resource):
 
 
 class INVENTORY(Resource):
-    # POST
     @jwt_required()
     def post(self):
         user_id = get_jwt_identity()
         check_user_role = User.query.filter_by(id=user_id).first()
+
+        # Ensure the user has the correct role to create inventory
+        if check_user_role.role != 'super admin':  # or whatever role is required
+            return make_response(jsonify({'message': 'User has no access rights to create a Car'}), 401)
+
         data = request.form
         image = request.files.get('image')
+        # import_document = request.files.get('import_document')
         gallery = request.files.getlist('gallery_images')
 
-        # print(gallery)
-        if image.filename == '':
+        if image is None or image.filename == '':
             return {'error': 'No image selected for upload'}, 400
+
+        if not all(g.filename for g in gallery):
+            return {'error': 'One or more gallery images are not selected for upload'}, 400
+
+    
 
         def allowed_file(filename):
             return '.' in filename and filename.rsplit('.', 1)[1].lower() in {'png', 'jpg', 'jpeg', 'gif', 'webp'}
-
-        if not allowed_file(image.filename) or not all(allowed_file(g.filename) for g in gallery):
-            return {'error': 'Invalid file type. Only images are allowed'}, 400
+        
+        if not allowed_file(image.filename) or not all(allowed_file(g.filename) for g in gallery) :
+            return {'error': 'One or more files have unsupported file types'}, 400
 
         try:
             image_upload_result = cloudinary.uploader.upload(image)
             gallery_upload_results = [cloudinary.uploader.upload(g) for g in gallery]
+            # import_document_result = cloudinary.uploader.upload(import_document)
         except Exception as e:
-            return {'error': f'Error uploading image: {str(e)}'}, 500
+            return {'error': f'Error uploading files: {str(e)}'}, 500
 
-        if (check_user_role.role == 'admin' and check_user_role.status == "active") or (check_user_role.role == 'super admin' and check_user_role.status == "active"):
+        try:
+            price = float(data.get('price'))
+            purchase_cost = float(data.get('purchase_cost'))
+            profit = price - purchase_cost
+
+            # Create the inventory item
             new_inventory_item = Inventory(
                 make=data.get('make'),
                 image=image_upload_result['secure_url'],
-                price=data.get('price'),
+                price=price,
                 currency=data.get('currency'),
                 model=data.get('model'),
                 year=data.get('year'),
@@ -419,33 +436,45 @@ class INVENTORY(Resource):
                 doors=data.get('doors'),
                 features=data.get('features'),
                 stock_number=data.get('stock_number'),
-                purchase_cost=data.get('purchase_cost'),
-                profit=data.get('profit'),
+                purchase_cost=purchase_cost,
+                profit=profit,
                 user_id=user_id
             )
 
             db.session.add(new_inventory_item)
             db.session.commit()
-
             db.session.refresh(new_inventory_item)
-            last_item = Inventory.query.order_by(Inventory.id.desc()).first()
 
+            # Create gallery images
             for result in gallery_upload_results:
                 gallery_image = GalleryImage(
-                    url=result['secure_url'], inventory_id=last_item.id)
+                    url=result['secure_url'], inventory_id=new_inventory_item.id)
                 db.session.add(gallery_image)
 
+            # Create importation record
+            transport = float(data.get('transport_fee'))
+            duty = float(data.get('import_duty'))
+            new_importation = Importation(
+                country_of_origin=data.get('country_of_origin'),
+                transport_fee=transport,
+                currency=data.get('currency'),
+                import_duty=duty,
+                # import_document=import_document_result['secure_url'],
+                car_id=new_inventory_item.id,
+                expense=transport + duty
+            )
+            db.session.add(new_importation)
             db.session.commit()
 
-            return make_response(jsonify({'message': 'Inventory created successfully'}), 201)
-        else:
-            return make_response(jsonify({'message': 'User has no access rights to create a Car'}), 401)
+            return make_response(jsonify({'message': 'Inventory and importation created successfully'}), 201)
+        except Exception as e:
+            db.session.rollback()
+            return {'error': f'Error creating inventory: {str(e)}'}, 500
 
-    # GET
     # @jwt_required()
     def get(self):
         items = Inventory.query.all()
-        return make_response(jsonify([{
+        response_data = [{
             'id': item.id,
             'make': item.make,
             'image': item.image,
@@ -470,11 +499,9 @@ class INVENTORY(Resource):
             'features': item.features,
             'stock_number': item.stock_number,
             'purchase_cost': item.purchase_cost,
-            'profit': item.profit,
-
-        } for item in items]))
-
-
+            'profit': item.profit
+        } for item in items]
+        return jsonify(response_data)
 # continue the README from here
 class inventory_update(Resource):
     @jwt_required()
@@ -881,22 +908,24 @@ class SaleResource(Resource):
         if check_user_role.role == 'seller' and check_user_role.status == "active":
             data = request.get_json()
 
-            # commision =data.get('commision')
-            
-            status=data.get('status')
-            history=data.get('history')
-            discount=data.get('discount')
-            sale_date=data.get('sale_date')
-            customer_id=data.get('customer_id')
-            seller_id=user_id
-            inventory_id=data.get('inventory_id')
-            promotions=data.get('promotions')
-            
-            if not status or not history or not discount or not sale_date or not customer_id or not inventory_id  :
-                inventory =Inventory.query.filter_by(id =inventory_id).first()
-                
+            status = data.get('status')
+            history = data.get('history')
+            discount = data.get('discount')
+            sale_date = data.get('sale_date')
+            customer_id = data.get('customer_id')
+            seller_id = user_id
+            inventory_id = data.get('inventory_id')
+            promotions = data.get('promotions')
+            print(history)
+
+            if status and discount is not None and sale_date and customer_id and inventory_id:
+                inventory = Inventory.query.filter_by(id=inventory_id).first()
+                # print(inventory)
+                if not inventory:
+                    return make_response(jsonify({'message': 'Inventory not found'}), 404)
+
                 commision = inventory.price * 0.20
-                
+
                 sale = Sale(
                     commision=commision,
                     status=status,
@@ -912,13 +941,39 @@ class SaleResource(Resource):
                 db.session.add(sale)
                 db.session.commit()
 
-                return make_response(jsonify({'message': 'Sale created successfully'}), 201)
-            
+                # Calculate company profit
+                purchase_cost = inventory.purchase_cost
+                sale_price = inventory.price - discount
+                company_profit = sale_price - purchase_cost - commision
+
+                # Get importation_id from inventory
+                importation = Importation.query.filter_by(car_id=inventory_id).first()
+                print(importation)
+                if not importation:
+                    return make_response(jsonify({'message': 'Importation not found'}), 404)
+
+                # Create report
+                report = Report(
+                    company_profit=company_profit,
+                    sale_id=sale.id,
+                    inventory_id=inventory_id,
+                    customer_id=customer_id,
+                    seller_id=seller_id,
+                    importation_id=importation.id
+                )
+
+                db.session.add(report)
+                db.session.commit()
+
+                return make_response(jsonify({
+                    'message': 'Sale and report created successfully',
+                    'sale_id': sale.id
+                }), 201)
             else:
-                return make_response(jsonify({'message': 'Unauthorized User'}), 401)
+                return make_response(jsonify({'message': 'Enter all required data'}), 400)
         else:
-            return make_response(jsonify({'message': 'Enter all Data required'}), 401)
-    # GET
+            return make_response(jsonify({'message': 'Unauthorized user'}), 401)
+
     @jwt_required()
     def get(self):
         user_id = get_jwt_identity()
@@ -1353,8 +1408,8 @@ class ReportRoute(Resource):
                 serialized_report = {
                     'id': report.id,
                     'company_profit': report.company_profit,
-                    'expenses': report.expenses,
-                    'sale_date': report.sale_date,
+                    'expenses': importation.expense,
+                    'sale_date': report.created_at,
                     'customer': {
                         'id': customer.id if customer else None,
                         'Names': f'{customer.first_name} {customer.last_name}' if customer else None,
@@ -1393,8 +1448,8 @@ class ReportRoute(Resource):
                 serialized_report = {
                     'id': report.id,
                     'company_profit': report.company_profit,
-                    'expenses': report.expenses,
-                    'sale_date': report.sale_date,
+                    'expenses': importation.expense,
+                    'sale_date': report.created_at,
                     'customer': {
                         'id': customer.id if customer else None,
                         'Names': f'{customer.first_name} {customer.last_name}' if customer else None,
@@ -1486,7 +1541,7 @@ class ReceiptAll(Resource):
             db.session.commit()
 
             db.session.refresh(new_receipt)
-            return make_response(jsonify({'message': 'Receipt created successfully'}), 201)
+            return make_response(jsonify({'message': 'Receipt created successfully', 'receipt_id':new_receipt.id}), 201)
         else:
             return make_response(jsonify({'message': 'User unauthorized'}), 401)
 
@@ -2339,6 +2394,7 @@ api.add_resource(AdminInvoice, '/userinvoice/<string:seller_name>')
 api.add_resource(DetailCustomer, '/customer')
 api.add_resource(SaleReviewIfAlreadyCreated, '/saleinvoice')
 api.add_resource(OneReceipt, '/receipts/<int:id>')
+
 
 if __name__ == "__main__":
     app.run(port=5555, debug=True)

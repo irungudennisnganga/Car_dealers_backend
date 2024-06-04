@@ -102,9 +102,10 @@ def seed_data():
                 transport_fee=fake.random_int(min=500, max=5000),
                 currency=fake.random_element(elements=('USD', 'KSH')),
                 import_duty=fake.random_int(min=1000, max=10000),
-                import_date=fake.date_this_decade(),
-                import_document='file.jpg',
-                car_id=fake.random_int(min=1, max=10)
+                # import_date=fake.date_this_decade(),
+                expense=fake.random_int(min=1000,max=2000),
+                # import_document='file.jpg',
+                car_id=fake.random_int(min=1, max=20)
             )
             db.session.add(importation)
 
@@ -187,9 +188,9 @@ def seed_data():
             report = Report(
                 company_profit=fake.random_int(min=1000, max=10000),
                 sale_id=fake.random_int(min=1, max=10),
-                expenses=fake.random_int(min=500, max=5000),
+                # expenses=fake.random_int(min=500, max=5000),
                 inventory_id=fake.random_int(min=1, max=10),
-                sale_date=fake.date_this_year(),
+                # sale_date=fake.date_this_year(),
                 customer_id=fake.random_int(min=1, max=10),
                 seller_id=random.choice(seller_ids),  # Select a random seller ID
                 importation_id=fake.random_int(min=1, max=10)
