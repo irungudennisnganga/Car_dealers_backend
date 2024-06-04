@@ -64,7 +64,7 @@ def seed_data():
         db.session.bulk_save_objects(inventories)
 
         # Generate additional inventories using Faker
-        for _ in range(10):
+        for _ in range(20):
             inventory = Inventory(
                 make=fake.company(),
                 image=fake.image_url(),
@@ -96,15 +96,16 @@ def seed_data():
 
         # Generate data for other models using Faker
 
-        for _ in range(10):
+        for _ in range(20):
             importation = Importation(
                 country_of_origin=fake.country(),
                 transport_fee=fake.random_int(min=500, max=5000),
                 currency=fake.random_element(elements=('USD', 'KSH')),
                 import_duty=fake.random_int(min=1000, max=10000),
-                import_date=fake.date_this_decade(),
-                import_document='file.jpg',
-                car_id=fake.random_int(min=1, max=10)
+                # import_date=fake.date_this_decade(),
+                expense=fake.random_int(min=1000,max=2000),
+                # import_document='file.jpg',
+                car_id=fake.random_int(min=1, max=20)
             )
             db.session.add(importation)
 
@@ -113,7 +114,7 @@ def seed_data():
         # Fetch seller IDs
         seller_ids = [user.id for user in User.query.filter_by(role='seller').all()]
 
-        for _ in range(10):
+        for _ in range(20):
             customer = Customer(
                 first_name=fake.first_name(),
                 last_name=fake.last_name(),
@@ -130,7 +131,7 @@ def seed_data():
         
         seller_ids = [user.id for user in User.query.filter_by(role='seller').all()]
 
-        for _ in range(10):
+        for _ in range(30):
             inventory_id = fake.random_int(min=1, max=10)
             inventory = Inventory.query.filter_by(id=inventory_id).first()
             if inventory:
@@ -152,7 +153,7 @@ def seed_data():
 
 
 
-        for _ in range(10):
+        for _ in range(30):
             invoice = Invoice(
                 date_of_purchase=fake.date_this_year(),
                 method=fake.random_element(elements=('Credit Card', 'Cash', 'Bank Transfer')),
@@ -183,13 +184,13 @@ def seed_data():
 
         seller_ids = [user.id for user in User.query.filter_by(role='seller').all()]
 
-        for _ in range(10):
+        for _ in range(30):
             report = Report(
                 company_profit=fake.random_int(min=1000, max=10000),
                 sale_id=fake.random_int(min=1, max=10),
-                expenses=fake.random_int(min=500, max=5000),
+                # expenses=fake.random_int(min=500, max=5000),
                 inventory_id=fake.random_int(min=1, max=10),
-                sale_date=fake.date_this_year(),
+                # sale_date=fake.date_this_year(),
                 customer_id=fake.random_int(min=1, max=10),
                 seller_id=random.choice(seller_ids),  # Select a random seller ID
                 importation_id=fake.random_int(min=1, max=10)
