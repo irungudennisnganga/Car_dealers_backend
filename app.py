@@ -4,15 +4,53 @@ from flask_restful import Resource
 from flask import request, jsonify, make_response
 from flask_bcrypt import check_password_hash, generate_password_hash
 from schemas import InvoiceSchema, InventorySchema, UserSchema, CustomerSchema, SaleSchema, ReceiptSchema
-from flask_jwt_extended import JWTManager, create_access_token, get_jwt_identity, jwt_required
-from flask_marshmallow import Marshmallow
+from flask_jwt_extended import  create_access_token, get_jwt_identity, jwt_required
 import cloudinary
 import cloudinary.uploader
 import cloudinary.api
 from datetime import datetime
 from collections import defaultdict
 import smtplib
+from reportlab.lib.pagesizes import letter
+from reportlab.pdfgen import canvas
+from io import BytesIO
+from email.mime.multipart import MIMEMultipart
+from email.mime.text import MIMEText
+from email.mime.application import MIMEApplication
 
+cloudinary.config(
+    cloud_name='dups4sotm',
+    api_key='141549863151677',
+    api_secret='ml0oq6T67FZeXf6AFJqhhPsDfAs'
+)
+
+def send_email_with_pdf(email, subject, body, attachment=None, attachment_name=None):
+    smtp_server = 'smtp.gmail.com'
+    smtp_port = 587
+    sender_email = 'irungud220@gmail.com'
+    sender_password = 'qbpq uvgp rrqh bjky'
+
+    # Create a multipart message
+    msg = MIMEMultipart()
+    msg['From'] = sender_email
+    msg['To'] = email
+    msg['Subject'] = subject
+
+    # Attach the body text
+    msg.attach(MIMEText(body, 'plain'))
+
+    # Attach the PDF file
+    if attachment and attachment_name:
+        part = MIMEApplication(attachment, Name=attachment_name)
+        part['Content-Disposition'] = f'attachment; filename="{attachment_name}"'
+        msg.attach(part)
+
+    # Send the email
+    with smtplib.SMTP(smtp_server, smtp_port) as server:
+        server.starttls()
+        server.login(sender_email, sender_password)
+        server.sendmail(sender_email, email, msg.as_string())
+        
 def send_email(email,subject,body):
     
     smtp_server = 'smtp.gmail.com'
@@ -29,11 +67,73 @@ def send_email(email,subject,body):
         server.login(sender_email, sender_password)
         server.sendmail(sender_email,email,message)
 
-cloudinary.config(
-    cloud_name='dups4sotm',
-    api_key='141549863151677',
-    api_secret='ml0oq6T67FZeXf6AFJqhhPsDfAs'
-)
+def generate_pdf( invoice, customer, inventory):
+        buffer = BytesIO()
+        c = canvas.Canvas(buffer, pagesize=letter)
+        width, height = letter
+
+        # Logo and Business Info
+        logo_path = "./images/autocar.jpg"  # Adjust the path to your logo
+        c.drawImage(logo_path, 40, height - 80, width=50, height=50)
+        
+        c.setFont("Helvetica-Bold", 12)
+        c.drawString(100, height - 40, "Business Name")
+        c.setFont("Helvetica", 10)
+        c.drawString(100, height - 55, "Office Address")
+        c.drawString(100, height - 70, "By-pass, Kiambu road,")
+        c.drawString(100, height - 85, "Kiambu county, Kenya")
+        c.drawString(100, height - 100, "(+254) 123 456 7890")
+
+        # Invoice Info
+        c.setFont("Helvetica-Bold", 16)
+        c.setFillColorRGB(0, 0, 1)  # Blue color
+        c.drawString(width - 200, height - 40, "INVOICE")
+
+        c.setFont("Helvetica", 10)
+        c.setFillColorRGB(0, 0, 0)  # Reset to black
+        c.drawString(width - 200, height - 55, f"Date: {invoice.date_of_purchase.strftime('%Y-%m-%d') if isinstance(invoice.date_of_purchase, datetime) else invoice.date_of_purchase}")
+        c.drawString(width - 200, height - 70, f"To: {customer.first_name} {customer.last_name}")
+        c.drawString(width - 200, height - 85, f"Address: {customer.address}")
+        c.drawString(width - 200, height - 100, f"Email: {customer.email}")
+
+        # Table Headers
+        table_top = height - 130
+        c.setFont("Helvetica-Bold", 10)
+        c.drawString(50, table_top, "Car Description")
+        c.drawString(200, table_top, "Total cost")
+        c.drawString(300, table_top, "Amount paid")
+        c.drawString(400, table_top, "Balance")
+        c.drawString(500, table_top, "Total")
+
+        # Table Content
+        table_top -= 20
+        c.setFont("Helvetica", 10)
+        c.drawString(50, table_top, f"{inventory.make} {inventory.model} {inventory.year}")
+        c.drawString(200, table_top, f"{invoice.currency} {invoice.total_amount}")
+        c.drawString(300, table_top, f"{invoice.currency} {invoice.amount_paid:.2f}")
+        c.drawString(400, table_top, f"{invoice.currency} {invoice.balance}")
+        c.drawString(500, table_top, f"{invoice.currency} {invoice.amount_paid:.2f}")
+
+        # Tax and Thanks Note
+        table_top -= 40
+        c.setFont("Helvetica", 10)
+        c.drawString(400, table_top, f"Tax (15%): {invoice.currency} {invoice.tax:.2f}")
+
+        # Footer
+        footer_top = 80
+        c.setFillColorRGB(0.9, 0.9, 1)  # Light blue background
+        c.rect(30, footer_top - 30, width - 60, 40, fill=True, stroke=False)
+        c.setFillColorRGB(0, 0, 0)  # Reset to black
+        c.setFont("Helvetica", 10)
+        c.drawString(50, footer_top, "Thank you for your business")
+        c.drawString(50, footer_top - 15, "Questions? Email us at support@businessname.com")
+
+        c.showPage()
+        c.save()
+
+        buffer.seek(0)
+        return buffer.getvalue()
+
 
 
 class CheckSession(Resource):
@@ -839,9 +939,14 @@ class Customers(Resource):
 
                 seller_id=user_id  # Assign the current user ID as the seller ID
             )
-
+            
+# add send email t nitify the customer has been added
+# rember also when creating a new invoivce to also pass the date insteaad of selecting the date again
+# in the inventory the stock number should be generated in the backend
             db.session.add(new_customer)
             db.session.commit()
+            
+            send_email(email=email,subject="Customer Registration",body="Your Information has been recorded Successful and Safe.Thank You and wlcome again")
 
             return {'message': 'Customer details added successfully'}, 201
 class UpdateDetails(Resource):    
@@ -1187,32 +1292,7 @@ class SaleItemResource(Resource):
         db.session.commit()
 
         return jsonify({'message': 'Sale deleted successfully'}, 201)
-# class GeneralSale(Resource):
-#     @jwt_required
-#     def get(self):
-#         user_id = get_jwt_identity()
 
-#         check_user_role = User.query.filter_by(id=user_id).first()
-
-#         if (check_user_role.role == 'admin' and check_user_role.status == "active") or (check_user_role.role == 'super admin' and check_user_role.status == "active"):
-#             serialized_sales = []
-#             for sale in Sale.query.all():
-#                 customer = Customer.query.filter_by(id=sale.customer_id).first()
-#                 seller = User.query.filter_by(id=sale.seller_id).first()
-#                 inventory = Inventory.query.filter_by(id=sale.inventory_id).first()
-#                 serialized_sale = {
-#                     # "id": sale.id,
-#                     "customer": len(customer),
-#                     "seller": len(seller),
-#                     "inventory_id": len(inventory),
-                    
-#                 }
-#                 serialized_sales.append(serialized_sale)
-#             return make_response(serialized_sales)  # Use serialized_sales instead of serialized_sale
-        
-#         else:
-#             return make_response(({"message":"User unauthorized"}))
-            
     
 class AdminSales(Resource):
     @jwt_required()
@@ -1523,25 +1603,46 @@ class ReceiptAll(Resource):
     @jwt_required()
     def post(self):
         user_id = get_jwt_identity()
-
         check_user_role = User.query.filter_by(id=user_id).first()
-        if check_user_role.role == 'admin' and check_user_role.status == "active" or check_user_role.role == 'super admin' and check_user_role.status == "active" or check_user_role.role == 'seller' and check_user_role.status == "active":
+        
+        if check_user_role.role in ['admin', 'super admin', 'seller'] and check_user_role.status == "active":
             data = request.json
+            invoice = Invoice.query.filter_by(id=data.get('invoice_id')).first()
+            customer = Customer.query.filter_by(id=data.get('customer_id')).first()
+            inventory = Inventory.query.filter_by(id=invoice.vehicle_id).first()
+            
+            sale = Sale.query.filter_by(id=inventory.id).order_by(Sale.created_at.desc()).first()
+
 
             new_receipt = Receipt(
                 user_id=user_id,
                 customer_id=data.get('customer_id'),
                 invoice_id=data.get('invoice_id'),
                 amount_paid=data.get('amount_paid'),
-                # remeber to correct here to caculate commission as expected
+                # remeber to correct here to calculate commission as expected
                 # commission=200
             )
 
             db.session.add(new_receipt)
             db.session.commit()
-
             db.session.refresh(new_receipt)
-            return make_response(jsonify({'message': 'Receipt created successfully', 'receipt_id':new_receipt.id}), 201)
+
+            # os.makedirs('receipts', exist_ok=True)
+            # pdf_file_path = f"receipts/receipt_{new_receipt.id}.pdf"
+            # pdf_data = generate_receipt_pdf(new_receipt, customer, sale)
+
+        #     with open(pdf_file_path, 'wb') as f:
+        #         f.write(pdf_data)
+            
+        #     send_email_with_pdf(
+        #     email=customer.email,
+        #     subject=f'Invoice for {inventory.make} {inventory.model}',
+        #     body=f'Thanks You For Doing Business With Us.Here is you Confirmation Receipt',
+        #     attachment=pdf_data,
+        #     attachment_name=f'invoice_{new_receipt.id}.pdf'
+        # )
+
+            return make_response(jsonify({'message': 'Receipt created successfully', 'receipt_id': new_receipt.id}), 201)
         else:
             return make_response(jsonify({'message': 'User unauthorized'}), 401)
 
@@ -1728,7 +1829,7 @@ class InvoiceCreate(Resource):
     @jwt_required()
     def post(self):
         user_id = get_jwt_identity()
-        current_user = User.query.get(user_id)
+        current_user = User.query.filter_by(id=user_id).first()
 
         if current_user.role != 'seller':
             return make_response(jsonify({'message': 'Unauthorized - Only sellers can create invoices'}), 403)
@@ -1740,53 +1841,70 @@ class InvoiceCreate(Resource):
             if field not in data:
                 return make_response(jsonify({'message': f'Missing required field: {field}'}), 400)
 
-        try:
-            # Fetch inventory by vehicle_id
-            id = data['vehicle_id']
-            paid = data['amount_paid']
-            inventory = Inventory.query.filter_by(id=id).first()
+        # try:
+        # Fetch inventory by vehicle_id
+        id = data['vehicle_id']
+        paid = data['amount_paid']
+        inventory = Inventory.query.filter_by(id=id).first()
 
-            if not inventory:
-                return make_response(jsonify({'message': 'Invalid vehicle_id'}), 400)
+        if not inventory:
+            return make_response(jsonify({'message': 'Invalid vehicle_id'}), 400)
 
-            balance = float(inventory.price) - float(paid)
-            customer_id = data['customer_id']
-            curr=data['currency']
-            customer_details = Customer.query.get(customer_id)
-            new_invoice = Invoice(
-                date_of_purchase=datetime.strptime(data['date_of_purchase'], "%Y-%m-%d"),
-                method=data['method'],
-                amount_paid=paid,
-                fee=data['fee'],
-                tax=data['tax'],
-                currency=curr,
-                seller_id=user_id, 
-                sale_id=data['sale_id'], 
-                customer_id=customer_id,
-                vehicle_id=id,
-                balance=balance,
-                total_amount=inventory.price,  # Use inventory price as total_amount
-                installments=data.get('installments'),  # Optional fields
-                pending_cleared=data.get('pending_cleared'),
-                signature=data.get('signature'),
-                warranty=data.get('warranty'),
-                terms_and_conditions=data.get('terms_and_conditions'),
-                agreement_details=data.get('agreement_details'),
-                additional_accessories=data.get('additional_accessories'),
-                notes_instructions=data.get('notes_instructions'),
-                payment_proof=data.get('payment_proof')
-            )
-            db.session.add(new_invoice)
-            db.session.commit()
-            # send email to the customer
-            send_email(email=customer_details.email, 
-                       subject=f'Inventory for {inventory.make} {inventory.model}', 
-                       body=f'Thank You for purchasing with us this car {inventory.make} {inventory.model}. You have currently paid {curr} {paid} remaining{curr} {balance}. Please complete the balance using the installments discussed during the purchase of the car. Remember to ask for the print out of your Invoice kindly! Thank you again')
+        balance = float(inventory.price) - float(paid)
+        customer_id = data['customer_id']
+        print(customer_id)
+        curr = data['currency']
+        customer_details = Customer.query.filter_by(id=customer_id).first()
 
-            return make_response(jsonify({'message': 'Invoice created successfully', 'invoice_id': new_invoice.id}), 201)
-        except Exception as e:
-            print(e)  # Log the exception for debugging
-            return make_response(jsonify({'message': 'Internal Server Error'}), 500)
+        new_invoice = Invoice(
+            date_of_purchase=datetime.strptime(data['date_of_purchase'], "%Y-%m-%d"),
+            method=data['method'],
+            amount_paid=paid,
+            fee=data['fee'],
+            tax=data['tax'],
+            currency=curr,
+            seller_id=user_id,
+            sale_id=data['sale_id'],
+            customer_id=customer_id,
+            vehicle_id=id,
+            balance=balance,
+            total_amount=inventory.price,  # Use inventory price as total_amount
+            installments=data.get('installments'),  # Optional fields
+            pending_cleared=data.get('pending_cleared'),
+            signature=data.get('signature'),
+            warranty=data.get('warranty'),
+            terms_and_conditions=data.get('terms_and_conditions'),
+            agreement_details=data.get('agreement_details'),
+            additional_accessories=data.get('additional_accessories'),
+            notes_instructions=data.get('notes_instructions'),
+            payment_proof=data.get('payment_proof')
+        )
+        db.session.add(new_invoice)
+        db.session.commit()
+
+        # Generate PDF
+    
+        pdf_data = generate_pdf(new_invoice, customer_details, inventory)
+        
+        
+
+        # Send email to the customer with PDF attachment
+        send_email_with_pdf(
+            email=customer_details.email,
+            subject=f'Invoice for {inventory.make} {inventory.model}',
+            body=f'Thank You for purchasing with us this car {inventory.make} {inventory.model}. '
+                    f'You have currently paid {curr} {paid} remaining {curr} {balance}. Please complete the balance using the installments discussed during the purchase of the car. '
+                    f'Remember to ask for the print out of your Invoice kindly! Thank you again',
+            attachment=pdf_data,
+            attachment_name=f'invoice_{new_invoice.id}.pdf'
+        )
+
+        return make_response(jsonify({'message': 'Invoice created successfully', 'invoice_id': new_invoice.id}), 201)
+        # except Exception as e:
+        #     print(e)  # Log the exception for debugging
+            # return make_response(jsonify({'message': 'Internal Server Error '}), 500)
+
+    
 
 
 class GeneralInvoices(Resource):
