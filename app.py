@@ -1911,10 +1911,9 @@ class GeneralInvoices(Resource):
     @jwt_required()
     def get(self):
         user_id = get_jwt_identity()
-
         check_user_role = User.query.filter_by(id=user_id).first()
-        
-        if check_user_role.role == 'admin' and check_user_role.status == "active" or check_user_role.role == 'super admin' and check_user_role.status == "active":
+
+        if check_user_role.role in ['admin', 'super admin'] and check_user_role.status == "active":
             invoices = Invoice.query.all()
 
             # Create a dictionary to store aggregated data for each seller
@@ -1922,25 +1921,29 @@ class GeneralInvoices(Resource):
 
             # Loop through each invoice and aggregate data
             for invoice in invoices:
+                seller_id = invoice.user.id
                 seller_name = f"{invoice.user.first_name} {invoice.user.last_name}"  # Assuming 'first_name' and 'last_name' fields in the User model
-                seller_data[seller_name]['total_customers'] += 1
-                seller_data[seller_name]['total_sales'] += 1 # Increment total sales sold
-                seller_data[seller_name]['total_inventory_sold'] += 1  # Increment total inventory sold
+                if seller_id not in seller_data:
+                    seller_data[seller_id]['seller_name'] = seller_name
+                seller_data[seller_id]['total_customers'] += 1
+                seller_data[seller_id]['total_sales'] += 1  # Increment total sales sold
+                seller_data[seller_id]['total_inventory_sold'] += 1  # Increment total inventory sold
 
             # Convert the aggregated data into a list of dictionaries
             aggregated_invoices = [
                 {
-                    'seller_name': seller_name,
+                    'seller_id': seller_id,
+                    'seller_name': data['seller_name'],
                     'total_customers': data['total_customers'],
                     'total_sales': data['total_sales'],
                     'total_inventory_sold': data['total_inventory_sold']
                 }
-                for seller_name, data in seller_data.items()
+                for seller_id, data in seller_data.items()
             ]
 
             return make_response(jsonify(aggregated_invoices), 200)
         else:
-            return make_response(jsonify({"Message":"user unauthorized"}), 401)
+            return make_response(jsonify({"Message": "user unauthorized"}), 401)
 
 class AllInvoices(Resource):
     @jwt_required()
@@ -2040,14 +2043,14 @@ class AllInvoices(Resource):
             return make_response(jsonify({'message': 'User unauthorized'}), 401)
 class AdminInvoice(Resource):
     @jwt_required()
-    def get(self, seller_name):
+    def get(self, seller_name,id):
         user_id = get_jwt_identity()
         check_user_role = User.query.filter_by(id=user_id).first()
 
         if not check_user_role:
             return make_response(jsonify({'Message': "User not found"}), 404)
 
-        user = User.query.filter_by(first_name=seller_name).first()
+        user = User.query.filter_by(first_name=seller_name, id=id).first()
 
         if not user:
             return make_response(jsonify({'Message': "No user found"}), 404)
@@ -2508,7 +2511,7 @@ api.add_resource(InvoiceUpdate, '/updateinvoice/<int:invoice_id>')
 api.add_resource(InvoiceDelete, '/deleteinvoice/<int:invoice_id>')
 api.add_resource(AllInvoices, '/invoices')
 api.add_resource(GeneralInvoices, '/general')
-api.add_resource(AdminInvoice, '/userinvoice/<string:seller_name>')
+api.add_resource(AdminInvoice, '/userinvoice/<string:seller_name>/<int:id>')
 api.add_resource(DetailCustomer, '/customer')
 api.add_resource(SaleReviewIfAlreadyCreated, '/saleinvoice')
 api.add_resource(OneReceipt, '/receipts/<int:id>')
