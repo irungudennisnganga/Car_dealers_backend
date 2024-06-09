@@ -1,8 +1,8 @@
-"""add imporation conention
+"""add tables as expected
 
-Revision ID: da60893ad158
+Revision ID: c411d29438db
 Revises: 
-Create Date: 2024-06-03 23:46:42.064592
+Create Date: 2024-06-08 00:51:09.362867
 
 """
 from alembic import op
@@ -10,7 +10,7 @@ import sqlalchemy as sa
 
 
 # revision identifiers, used by Alembic.
-revision = 'da60893ad158'
+revision = 'c411d29438db'
 down_revision = None
 branch_labels = None
 depends_on = None
@@ -77,6 +77,16 @@ def upgrade():
     sa.ForeignKeyConstraint(['user_id'], ['user.id'], ),
     sa.PrimaryKeyConstraint('id')
     )
+    op.create_table('notifications',
+    sa.Column('id', sa.Integer(), nullable=False),
+    sa.Column('user_id', sa.Integer(), nullable=False),
+    sa.Column('message', sa.String(), nullable=False),
+    sa.Column('notification_type', sa.String(), nullable=False),
+    sa.Column('created_at', sa.DateTime(), server_default=sa.text('(CURRENT_TIMESTAMP)'), nullable=True),
+    sa.Column('updated_at', sa.DateTime(), nullable=True),
+    sa.ForeignKeyConstraint(['user_id'], ['user.id'], ),
+    sa.PrimaryKeyConstraint('id')
+    )
     op.create_table('gallery_image',
     sa.Column('id', sa.Integer(), nullable=False),
     sa.Column('url', sa.String(length=255), nullable=False),
@@ -97,18 +107,6 @@ def upgrade():
     sa.Column('created_at', sa.DateTime(), server_default=sa.text('(CURRENT_TIMESTAMP)'), nullable=True),
     sa.Column('updated_at', sa.DateTime(), nullable=True),
     sa.ForeignKeyConstraint(['car_id'], ['inventories.id'], ),
-    sa.PrimaryKeyConstraint('id')
-    )
-    op.create_table('notifications',
-    sa.Column('id', sa.Integer(), nullable=False),
-    sa.Column('user_id', sa.Integer(), nullable=False),
-    sa.Column('customer_id', sa.Integer(), nullable=False),
-    sa.Column('message', sa.String(), nullable=False),
-    sa.Column('notification_type', sa.String(), nullable=False),
-    sa.Column('created_at', sa.DateTime(), server_default=sa.text('(CURRENT_TIMESTAMP)'), nullable=True),
-    sa.Column('updated_at', sa.DateTime(), nullable=True),
-    sa.ForeignKeyConstraint(['customer_id'], ['customers.id'], ),
-    sa.ForeignKeyConstraint(['user_id'], ['user.id'], ),
     sa.PrimaryKeyConstraint('id')
     )
     op.create_table('receipts',
@@ -197,9 +195,9 @@ def downgrade():
     op.drop_table('invoices')
     op.drop_table('sales')
     op.drop_table('receipts')
-    op.drop_table('notifications')
     op.drop_table('importations')
     op.drop_table('gallery_image')
+    op.drop_table('notifications')
     op.drop_table('inventories')
     op.drop_table('customers')
     op.drop_table('user')

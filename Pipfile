@@ -21,6 +21,7 @@ marshmallow = "*"
 flask-marshmallow = "*"
 cloudinary = "*"
 reportlab = "*"
+flask-limiter = "*"
 
 [dev-packages]
 

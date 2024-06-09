@@ -203,7 +203,7 @@ def seed_data():
         for _ in range(10):
             notification = Notification(
                 user_id=fake.random_int(min=1, max=8),
-                customer_id=fake.random_int(min=1, max=10),
+                # customer_id=fake.random_int(min=1, max=10),
                 message=fake.sentence(),
                 notification_type=fake.random_element(elements=('Type1', 'Type2', 'Type3'))  # Adjust notification types as needed
             )

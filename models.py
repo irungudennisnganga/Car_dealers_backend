@@ -132,7 +132,7 @@ class Customer(db.Model, SerializerMixin):
     sale = db.relationship("Sale", backref='customer')
     invoice = db.relationship("Invoice", backref='customer')
     report = db.relationship("Report", backref='customer')
-    notification = db.relationship("Notification", backref='customer')
+    # notification = db.relationship("Notification", backref='customer')
     receipt = db.relationship("Receipt", backref='customer')
 
     
@@ -203,8 +203,11 @@ class Notification(db.Model, SerializerMixin):
 
     id = db.Column(db.Integer, primary_key=True)
     user_id = db.Column(db.Integer, db.ForeignKey("user.id"), nullable=False)
-    customer_id = db.Column(db.Integer, db.ForeignKey("customers.id"), nullable=False)
+    # customer_id = db.Column(db.Integer, db.ForeignKey("customers.id"), nullable=False)
     message = db.Column(db.String, nullable=False)
+    seller_read = db.Column(db.Boolean, default=False)
+    admin_read = db.Column(db.Boolean, default=False)
+    super_admin_read = db.Column(db.Boolean, default=False)
     notification_type = db.Column(db.String, nullable=False)
     created_at = db.Column(db.DateTime, server_default=db.func.now())
     updated_at = db.Column(db.DateTime, onupdate=db.func.now())
