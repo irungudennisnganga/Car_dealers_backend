@@ -294,7 +294,7 @@ class UpdatePassword(Resource):
 
 # in this class we are getting all the users and serializering each user using list comprehension
 class AllUsers(Resource):
-    decorators = [limiter.limit("5 per minute")]
+    # decorators = [limiter.limit("5 per minute")]
     
     @jwt_required()
     def get(self):
@@ -489,7 +489,7 @@ class OneUser(Resource):
 
 
 class INVENTORY(Resource):
-    decorators = [limiter.limit("5 per minute")]
+    # decorators = [limiter.limit("5 per minute")]
     
     @jwt_required()
     def post(self):
@@ -599,7 +599,7 @@ class INVENTORY(Resource):
             return {'error': f'Error creating inventory: {str(e)}'}, 500
 
     # @jwt_required()
-    decorators = [limiter.limit("5 per minute")]
+    # decorators = [limiter.limit("5 per minute")]
     
     def get(self):
         items = Inventory.query.all()
@@ -1046,7 +1046,7 @@ class DeleteDetails(Resource):
         return {'message': 'Customer deleted successfully'}, 200
 
 class SaleResource(Resource):
-    decorators = [limiter.limit("2 per minute")]
+    # decorators = [limiter.limit("2 per minute")]
     # POST
     @jwt_required()
     def post(self):
@@ -1131,7 +1131,7 @@ class SaleResource(Resource):
         else:
             return make_response(jsonify({'message': 'Unauthorized user'}), 401)
 
-    decorators = [limiter.limit("5 per minute")]
+    # decorators = [limiter.limit("5 per minute")]
     @jwt_required()
     def get(self):
         user_id = get_jwt_identity()
@@ -1499,7 +1499,7 @@ class OneSellerAdmin(Resource):
 
 class ReportRoute(Resource):
     # POST
-    decorators = [limiter.limit("5 per minute")]
+    # decorators = [limiter.limit("5 per minute")]
     @jwt_required()
     def post(self):
         user_id = get_jwt_identity()
@@ -1537,7 +1537,7 @@ class ReportRoute(Resource):
             return make_response(jsonify({'message': 'User has no access rights to create a report'}), 401)
 
     # GET
-    decorators = [limiter.limit("5 per minute")]
+    # decorators = [limiter.limit("5 per minute")]
     @jwt_required()
     def get(self):
         user_id = get_jwt_identity()
