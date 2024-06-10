@@ -7,8 +7,9 @@ from flask_sqlalchemy import SQLAlchemy
 from flask_jwt_extended import JWTManager,create_access_token,get_jwt_identity,jwt_required
 from flask_bcrypt import Bcrypt
 from datetime import timedelta
-# from flask_marshmallow import Marshmallow
-
+from flask_marshmallow import Marshmallow
+from flask_limiter import Limiter
+from flask_limiter.util import get_remote_address
 
 app = Flask(__name__) #instanciate a flask application 
 
@@ -23,9 +24,14 @@ app.config["JWT_ACCESS_TOKEN_EXPIRES"] = timedelta(hours=500)
 jwt  = JWTManager(app)
 
 
+limiter = Limiter(
+    get_remote_address,
+    app=app,
+    default_limits=["200 per day", "50 per hour"]
+)
 # Initialize extensions
 db = SQLAlchemy(app)
-# ma = Marshmallow(app)
+ma = Marshmallow(app)
 migrate = Migrate(app, db)
 bcrypt = Bcrypt(app)
 # jwt = JWTManager(app)
