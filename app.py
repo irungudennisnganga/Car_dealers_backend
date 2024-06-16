@@ -1911,7 +1911,11 @@ class OneReceipt(Resource):
         return make_response(jsonify(serialized_receipt), 200)
 
 class InvoiceCreate(Resource):
+
     # decorators = [limiter.limit("2 per minute")]
+
+    decorators = [limiter.limit("2 per minute")]
+
     @jwt_required()
     def post(self):
         user_id = get_jwt_identity()
@@ -2001,7 +2005,11 @@ class InvoiceCreate(Resource):
 
 
 class GeneralInvoices(Resource):
+
     # decorators = [limiter.limit("5 per minute")]
+
+    decorators = [limiter.limit("5 per minute")]
+
     
     @jwt_required()
     def get(self):
@@ -2041,7 +2049,11 @@ class GeneralInvoices(Resource):
             return make_response(jsonify({"Message": "user unauthorized"}), 401)
 
 class AllInvoices(Resource):
+
     # decorators = [limiter.limit("5 per minute")]
+
+    decorators = [limiter.limit("5 per minute")]
+ 
     
     @jwt_required()
     def get(self):
@@ -2140,7 +2152,11 @@ class AllInvoices(Resource):
         else:
             return make_response(jsonify({'message': 'User unauthorized'}), 401)
 class AdminInvoice(Resource):
+
     # decorators = [limiter.limit("5 per minute")]
+
+    decorators = [limiter.limit("5 per minute")]
+
     
     @jwt_required()
     def get(self, seller_name,id):
@@ -2211,7 +2227,11 @@ class AdminInvoice(Resource):
 
 class InvoiceGet(Resource):
     
+
     # decorators = [limiter.limit("5 per minute")]
+
+    decorators = [limiter.limit("5 per minute")]
+
     @jwt_required()
     def get(self, invoice_id):
         user_id = get_jwt_identity()

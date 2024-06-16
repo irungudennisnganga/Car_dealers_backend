@@ -1,6 +1,7 @@
 from config import app, db, bcrypt
 from models import User, Inventory, Importation, Customer, Sale, Invoice, Report, Notification, Receipt, GalleryImage
 
+
 def seed_data():
     with app.app_context():
         # Delete all existing records
@@ -21,16 +22,19 @@ def seed_data():
         password_hash2 = bcrypt.generate_password_hash('password').decode('utf-8')
 
         users = [
-            User(first_name='Dennis', last_name='Irungu', status="active", email='irungud220@gmail.com', image='https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcScNc6oZl7o7MuTWxfNXnWIiqzzCRmQg8sjBp59ZBZpFg&s', role='super admin', contact='1234567890', _password_hash=password_hash),
-            User(first_name='Maurine', last_name='Wambui', status="active", email='maurinewambui@gmail.com', image='https://imgv3.fotor.com/images/blog-cover-image/a-pink-barbie-doll-with-a-pink-background.jpg', role='admin', contact='9876543210', _password_hash=password_hash2),
-            User(first_name='Stanley', last_name='Muiruri', status="active", email='stanleywanjau@gmail.com', image='https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcScNc6oZl7o7MuTWxfNXnWIiqzzCRmQg8sjBp59ZBZpFg&s', role='admin', contact='9876567', _password_hash=password_hash),
-            User(first_name='Beatrice', last_name='Mwangi', status="active", email='bbeatricemwangi@gmail.com', image='https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcS2bPWPwj6jFqpAFm7q02z4hQ2Uwt4vYEueQzkzpq7dfg&s', role='seller', contact='2345098', _password_hash=password_hash2),
-            User(first_name='Samuel', last_name='Mwangi', status="active", email='samwelmwangi@gmail.com', image='https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcScNc6oZl7o7MuTWxfNXnWIiqzzCRmQg8sjBp59ZBZpFg&s', role='seller', contact='98765678', _password_hash=password_hash),
-            User(first_name='James', last_name='Kinyanjui', status="active", email='jameskinyanjui@gmail.com', image='https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcS2bPWPwj6jFqpAFm7q02z4hQ2Uwt4vYEueQzkzpq7dfg&s', role='seller', contact='987678', _password_hash=password_hash2),
+
+            User(first_name='Dennis', last_name='Irungu', status="active", email='irungud220@gmail.com', image='https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcScNc6oZl7o7MuTWxfNXnWIiqzzCRmQg8sjBp59ZBZpFg&s', role='super admin', contact=1234567890, _password_hash=password_hash),
+            User(first_name='Maurine', last_name='Wambui', status="active", email='maurinewambui@gmail.com', image='https://imgv3.fotor.com/images/blog-cover-image/a-pink-barbie-doll-with-a-pink-background.jpg', role='admin', contact=9876543210, _password_hash=password_hash2),
+            User(first_name='Stanley', last_name='Muiruri', status="active", email='stanleywanjau@gmail.com', image='https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcScNc6oZl7o7MuTWxfNXnWIiqzzCRmQg8sjBp59ZBZpFg&s', role='admin', contact=9876567, _password_hash=password_hash),
+            User(first_name='Beatrice', last_name='Mwangi', status="active", email='bbeatricemwangi@gmail.com', image='https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcS2bPWPwj6jFqpAFm7q02z4hQ2Uwt4vYEueQzkzpq7dfg&s', role='seller', contact=2345098, _password_hash=password_hash2),
+            User(first_name='Samuel', last_name='Mwangi', status="active", email='samwelmwangi@gmail.com', image='https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcScNc6oZl7o7MuTWxfNXnWIiqzzCRmQg8sjBp59ZBZpFg&s', role='seller', contact=98765678, _password_hash=password_hash),
+            User(first_name='James', last_name='Kinyanjui', status="active", email='jameskinyanjui@gmail.com', image='https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcS2bPWPwj6jFqpAFm7q02z4hQ2Uwt4vYEueQzkzpq7dfg&s', role='seller', contact=987678, _password_hash=password_hash2),
+
         ]
 
         db.session.bulk_save_objects(users)
         db.session.commit()
+
 
         # Add inventories
         inventories = [
@@ -119,6 +123,9 @@ def seed_data():
             Receipt(user_id=4, customer_id=4, invoice_id=4, amount_paid=2700),
         ]
 
+        
+
+
         db.session.bulk_save_objects(receipts)
         db.session.commit()
 
@@ -141,6 +148,8 @@ def seed_data():
 
         db.session.bulk_save_objects(gallery_images)
         db.session.commit()
+
+     
 
 if __name__ == '__main__':
     seed_data()
