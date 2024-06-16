@@ -39,6 +39,14 @@
     - [Example Usage](#example-usage-6)
       - [POST Request](#post-request)
       - [GET Request](#get-request-1)
+    - [Inventory Update and Deletion](#inventory-update-and-deletion)
+    - [Steps:](#steps)
+      - [Steps:](#steps-1)
+    - [Importations](#importations)
+      - [Steps:](#steps-2)
+    - [Update and Delete Importation API](#update-and-delete-importation-api)
+      - [Steps:](#steps-3)
+      - [Steps:](#steps-4)
 
 <!-- END doctoc generated TOC please keep comment here to allow auto update -->
 
@@ -611,6 +619,245 @@ supported at the server and the relationship between all the models and how they
     GET /inventory
 
 If the user is authorized and the request is valid, the server responds with the created inventory item's information (for POST) or the list of all inventory items (for GET). If there are any issues with the request, the server responds with an appropriate error message and status code.
+
+
+### Inventory Update and Deletion 
+This class defines the InventoryUpdate resource, which handles the update and deletion of inventory items. It requires JSON Web Token (JWT) authentication to ensure that only authorized users can perform these actions.
+
+Class: InventoryUpdate(Resource)
+
+Endpoints:
+
+    PUT /inventory/<id>
+
+    DELETE /inventory/<id>
+
+    Methods:
+    PUT /inventory/<id>
+
+    This method updates an inventory item.
+
+    Authentication: Requires a valid JWT token.
+    Authorization: Only users with the role of 'admin' or 'super admin' and an active status can update inventory items.
+    Request Parameters:
+    Form data for updating inventory item attributes.
+    Gallery images as files for updating the inventory item's image gallery.
+
+### Steps:
+
+    1. Authenticate and authorize the user:
+
+        Retrieve the user ID from the JWT token.
+        Fetch the user from the database and check their role and status.
+
+    2. Find the inventory item:
+
+        Query the Inventory table to find the item by its ID.
+        Return a 404 error if the item is not found.
+        
+    3. Upload gallery images:
+
+        If provided, upload gallery images to Cloudinary.
+        Save the URLs of the uploaded images in the GalleryImage table.
+
+    4. Update inventory item attributes:
+
+    Iterate over the provided form data and update the inventory item attributes accordingly.
+    Commit the changes to the database.
+
+    5. Return a success message:
+
+    Respond with a message indicating that the inventory item was updated successfully.
+    Response:
+
+    200 OK - Inventory item updated successfully.
+    404 Not Found - Inventory item not found.
+    422 Unprocessable Entity - User does not have access rights to update the inventory item.
+    500 Internal Server Error - Error occurred while uploading gallery images.
+    DELETE /inventory/<id>
+    This method deletes an inventory item.
+
+    Authentication: Requires a valid JWT token.
+    Authorization: Only users with the role of 'admin' or 'super admin' and an active status can delete inventory items.
+#### Steps:
+
+    1. Authenticate and authorize the user:
+
+        Retrieve the user ID from the JWT token.
+        Fetch the user from the database and check their role and status.
+
+    2. Delete gallery images:
+
+        Query the GalleryImage table to find images associated with the inventory item.
+        Delete all found gallery images.
+        Delete the inventory item:
+
+    3. Query the Inventory table to find the item by its ID.
+
+        If found, delete the inventory item and commit the changes to the database.
+        Return a success message.
+        Return a response:
+
+    Respond with a message indicating that the inventory item was deleted successfully.
+    If the item is not found, return a 404 error.
+    Response:
+
+    200 OK - Inventory item deleted successfully.
+    404 Not Found - Inventory item not found.
+    422 Unprocessable Entity - User does not have access rights to delete the inventory item.
+
+
+### Importations
+
+This class defines the Importations resource, which handles the retrieval and creation of importation records. It requires JSON Web Token (JWT) authentication to ensure that only authorized users can perform these actions.
+
+Class: Importations(Resource)
+Endpoints:
+
+GET /importations
+
+POST /importations
+
+Methods:
+GET /importations
+
+This method retrieves all importation records.
+
+Authentication: Requires a valid JWT token.
+Authorization: Only users with the role of 'super admin', 'admin', or 'seller' with an active status can retrieve importation records.
+
+#### Steps:
+
+    1. Authenticate and authorize the user:
+
+        Retrieve the user ID from the JWT token.
+        Fetch the user from the database and check their role and status.
+
+    2. Retrieve importation records:
+
+        Query the Importation table to get all importation records.
+        For each importation record, gather relevant details, including associated car information from the Inventory table.
+    3. Return importation data:
+
+        Respond with a list of importation records, each containing details such as the country of origin, transport fee, currency, import duty, import date, import document, and car details.
+    4. Response:
+
+        200 OK - Successfully retrieved importation records.
+        401 Unauthorized - User does not have access rights to retrieve importation records.
+        POST /importations
+        This method creates a new importation record.
+
+        Authentication: Requires a valid JWT token.
+        Authorization: Only users with the role of 'super admin' or 'admin' with an active status can create importation records.
+
+        Steps:
+
+        1. Authenticate and authorize the user:
+
+        Retrieve the user ID from the JWT token.
+        Fetch the user from the database and check their role and status.
+        2. Validate form data and uploaded document:
+
+        Ensure all required fields are present: country_of_origin, transport_fee, currency, import_duty, import_date, car_id.
+        Ensure an import document is provided and is of an allowed file type (e.g., png, jpg, jpeg, gif, pdf, doc, docx, txt).
+
+        3. Upload import document:
+
+        Upload the document to Cloudinary.
+        Handle any errors during the upload process.
+
+        4. Create new importation record:
+
+        Create a new Importation object with the provided data and the URL of the uploaded document.
+        Add the new importation record to the database and commit the transaction.
+
+        5. Return a success message:
+
+        Respond with a message indicating that the importation record was created successfully.
+        Response:
+
+        201 Created - Importation record created successfully.
+        400 Bad Request - Missing required fields or invalid file type.
+        401 Unauthorized - User does not have access rights to create importation records.
+        500 Internal Server Error - Error occurred while uploading the document.
+
+### Update and Delete Importation API
+
+This class defines the UpdateImportation resource, which handles the updating and deletion of importation records. It requires JSON Web Token (JWT) authentication to ensure that only authorized users can perform these actions.
+
+Class: UpdateImportation(Resource)
+Endpoints:
+
+    PUT /importations/<importation_id>
+
+    DELETE /importations/<importation_id>
+
+    Methods:
+    PUT /importations/<importation_id>
+
+    This method updates an existing importation record.
+
+    Authentication: Requires a valid JWT token.
+    Authorization: Only users with the role of 'super admin' or 'admin' with an active status can update importation records.
+#### Steps:
+
+    1. Authenticate and authorize the user:
+
+    Retrieve the user ID from the JWT token.
+    Fetch the user from the database and check their role and status.
+
+    2. Retrieve and validate the importation record:
+
+    Query the Importation table to find the record by its ID.
+    Return a 404 error if the importation record is not found.
+
+    3. Validate and upload the document:
+
+    Retrieve the import document from the request.
+    Check if a document is selected for upload and validate its file type.
+    Upload the document to Cloudinary and update the import_document field with the secure URL.
+
+    4. Update importation attributes:
+
+    Iterate over the provided form data and update the importation attributes accordingly.
+    Commit the changes to the database.
+
+    5. Return a success message:
+
+    Respond with a message indicating that the importation record was updated successfully.
+    Response:
+
+    200 OK - Importation record updated successfully.
+    400 Bad Request - No document selected for upload or invalid file type.
+    404 Not Found - Importation record not found.
+    500 Internal Server Error - Error occurred while uploading the document.
+    401 Unauthorized - User does not have access rights to update importation records.
+    DELETE /importations/<importation_id>
+    This method deletes an existing importation record.
+
+    Authentication: Requires a valid JWT token.
+    Authorization: Only users with the role of 'super admin' or 'admin' with an active status can delete importation records.
+#### Steps:
+
+    1. Authenticate and authorize the user:
+
+    Retrieve the user ID from the JWT token.
+    Fetch the user from the database and check their role and status.
+    Retrieve and validate the importation record:
+
+    2. Query the Importation table to find the record by its ID.
+    Return a 404 error if the importation record is not found.
+    Delete the importation record:
+
+    3 Delete the importation record from the database and commit the changes.
+    Return a success message:
+
+    4. Respond with a message indicating that the importation record was deleted successfully.
+    Response:
+
+    200 OK - Importation record deleted successfully.
+    404 Not Found - Importation record not found.
+    401 Unauthorized - User does not have access rights to delete importation records.
 
 
 

@@ -1,8 +1,8 @@
-"""add all tables
+"""add tables as expected
 
-Revision ID: 1e90239e1417
+Revision ID: c411d29438db
 Revises: 
-Create Date: 2024-05-23 22:03:57.069425
+Create Date: 2024-06-08 00:51:09.362867
 
 """
 from alembic import op
@@ -10,7 +10,7 @@ import sqlalchemy as sa
 
 
 # revision identifiers, used by Alembic.
-revision = '1e90239e1417'
+revision = 'c411d29438db'
 down_revision = None
 branch_labels = None
 depends_on = None
@@ -77,6 +77,16 @@ def upgrade():
     sa.ForeignKeyConstraint(['user_id'], ['user.id'], ),
     sa.PrimaryKeyConstraint('id')
     )
+    op.create_table('notifications',
+    sa.Column('id', sa.Integer(), nullable=False),
+    sa.Column('user_id', sa.Integer(), nullable=False),
+    sa.Column('message', sa.String(), nullable=False),
+    sa.Column('notification_type', sa.String(), nullable=False),
+    sa.Column('created_at', sa.DateTime(), server_default=sa.text('(CURRENT_TIMESTAMP)'), nullable=True),
+    sa.Column('updated_at', sa.DateTime(), nullable=True),
+    sa.ForeignKeyConstraint(['user_id'], ['user.id'], ),
+    sa.PrimaryKeyConstraint('id')
+    )
     op.create_table('gallery_image',
     sa.Column('id', sa.Integer(), nullable=False),
     sa.Column('url', sa.String(length=255), nullable=False),
@@ -92,24 +102,11 @@ def upgrade():
     sa.Column('transport_fee', sa.Integer(), nullable=False),
     sa.Column('currency', sa.String(), nullable=False),
     sa.Column('import_duty', sa.Integer(), nullable=False),
-    sa.Column('import_date', sa.String(), nullable=False),
-    sa.Column('import_document', sa.String(), nullable=False),
     sa.Column('car_id', sa.Integer(), nullable=False),
+    sa.Column('expense', sa.String(), nullable=False),
     sa.Column('created_at', sa.DateTime(), server_default=sa.text('(CURRENT_TIMESTAMP)'), nullable=True),
     sa.Column('updated_at', sa.DateTime(), nullable=True),
     sa.ForeignKeyConstraint(['car_id'], ['inventories.id'], ),
-    sa.PrimaryKeyConstraint('id')
-    )
-    op.create_table('notifications',
-    sa.Column('id', sa.Integer(), nullable=False),
-    sa.Column('user_id', sa.Integer(), nullable=False),
-    sa.Column('customer_id', sa.Integer(), nullable=False),
-    sa.Column('message', sa.String(), nullable=False),
-    sa.Column('notification_type', sa.String(), nullable=False),
-    sa.Column('created_at', sa.DateTime(), server_default=sa.text('(CURRENT_TIMESTAMP)'), nullable=True),
-    sa.Column('updated_at', sa.DateTime(), nullable=True),
-    sa.ForeignKeyConstraint(['customer_id'], ['customers.id'], ),
-    sa.ForeignKeyConstraint(['user_id'], ['user.id'], ),
     sa.PrimaryKeyConstraint('id')
     )
     op.create_table('receipts',
@@ -122,23 +119,6 @@ def upgrade():
     sa.Column('updated_at', sa.DateTime(), nullable=True),
     sa.ForeignKeyConstraint(['customer_id'], ['customers.id'], ),
     sa.ForeignKeyConstraint(['user_id'], ['user.id'], ),
-    sa.PrimaryKeyConstraint('id')
-    )
-    op.create_table('reports',
-    sa.Column('id', sa.Integer(), nullable=False),
-    sa.Column('company_profit', sa.Integer(), nullable=False),
-    sa.Column('sale_id', sa.Integer(), nullable=False),
-    sa.Column('expenses', sa.Integer(), nullable=False),
-    sa.Column('inventory_id', sa.Integer(), nullable=False),
-    sa.Column('sale_date', sa.Integer(), nullable=False),
-    sa.Column('customer_id', sa.Integer(), nullable=False),
-    sa.Column('seller_id', sa.Integer(), nullable=False),
-    sa.Column('importation_id', sa.Integer(), nullable=False),
-    sa.Column('created_at', sa.DateTime(), server_default=sa.text('(CURRENT_TIMESTAMP)'), nullable=True),
-    sa.Column('updated_at', sa.DateTime(), nullable=True),
-    sa.ForeignKeyConstraint(['customer_id'], ['customers.id'], ),
-    sa.ForeignKeyConstraint(['inventory_id'], ['inventories.id'], ),
-    sa.ForeignKeyConstraint(['seller_id'], ['user.id'], ),
     sa.PrimaryKeyConstraint('id')
     )
     op.create_table('sales',
@@ -190,18 +170,34 @@ def upgrade():
     sa.ForeignKeyConstraint(['vehicle_id'], ['inventories.id'], ),
     sa.PrimaryKeyConstraint('id')
     )
+    op.create_table('reports',
+    sa.Column('id', sa.Integer(), nullable=False),
+    sa.Column('company_profit', sa.Integer(), nullable=False),
+    sa.Column('sale_id', sa.Integer(), nullable=False),
+    sa.Column('inventory_id', sa.Integer(), nullable=False),
+    sa.Column('customer_id', sa.Integer(), nullable=False),
+    sa.Column('seller_id', sa.Integer(), nullable=False),
+    sa.Column('importation_id', sa.Integer(), nullable=False),
+    sa.Column('created_at', sa.DateTime(), server_default=sa.text('(CURRENT_TIMESTAMP)'), nullable=True),
+    sa.Column('updated_at', sa.DateTime(), nullable=True),
+    sa.ForeignKeyConstraint(['customer_id'], ['customers.id'], ),
+    sa.ForeignKeyConstraint(['importation_id'], ['importations.id'], ),
+    sa.ForeignKeyConstraint(['inventory_id'], ['inventories.id'], ),
+    sa.ForeignKeyConstraint(['seller_id'], ['user.id'], ),
+    sa.PrimaryKeyConstraint('id')
+    )
     # ### end Alembic commands ###
 
 
 def downgrade():
     # ### commands auto generated by Alembic - please adjust! ###
+    op.drop_table('reports')
     op.drop_table('invoices')
     op.drop_table('sales')
-    op.drop_table('reports')
     op.drop_table('receipts')
-    op.drop_table('notifications')
     op.drop_table('importations')
     op.drop_table('gallery_image')
+    op.drop_table('notifications')
     op.drop_table('inventories')
     op.drop_table('customers')
     op.drop_table('user')

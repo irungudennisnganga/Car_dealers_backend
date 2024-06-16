@@ -1,16 +1,57 @@
-from models import User, Inventory, Importation, Customer, GalleryImage, Sale,Invoice,Receipt
-from config import app, api, db, bcrypt
+from models import User, Inventory, Importation, Customer, GalleryImage, Sale,Invoice,Receipt,Report,Notification
+from config import app, api, db, bcrypt,limiter
 from flask_restful import Resource
 from flask import request, jsonify, make_response
 from flask_bcrypt import check_password_hash, generate_password_hash
-from flask_jwt_extended import JWTManager, create_access_token, get_jwt_identity, jwt_required
+from schemas import InvoiceSchema, InventorySchema, UserSchema, CustomerSchema, SaleSchema, ReceiptSchema
+from flask_jwt_extended import  create_access_token, get_jwt_identity, jwt_required
+from sqlalchemy import or_
 import cloudinary
 import cloudinary.uploader
 import cloudinary.api
 from datetime import datetime
 from collections import defaultdict
 import smtplib
+from reportlab.lib.pagesizes import letter
+from reportlab.pdfgen import canvas
+from io import BytesIO
+from email.mime.multipart import MIMEMultipart
+from email.mime.text import MIMEText
+from email.mime.application import MIMEApplication
 
+cloudinary.config(
+    cloud_name='dups4sotm',
+    api_key='141549863151677',
+    api_secret='ml0oq6T67FZeXf6AFJqhhPsDfAs'
+)
+
+def send_email_with_pdf(email, subject, body, attachment=None, attachment_name=None):
+    smtp_server = 'smtp.gmail.com'
+    smtp_port = 587
+    sender_email = 'irungud220@gmail.com'
+    sender_password = 'qbpq uvgp rrqh bjky'
+
+    # Create a multipart message
+    msg = MIMEMultipart()
+    msg['From'] = sender_email
+    msg['To'] = email
+    msg['Subject'] = subject
+
+    # Attach the body text
+    msg.attach(MIMEText(body, 'plain'))
+
+    # Attach the PDF file
+    if attachment and attachment_name:
+        part = MIMEApplication(attachment, Name=attachment_name)
+        part['Content-Disposition'] = f'attachment; filename="{attachment_name}"'
+        msg.attach(part)
+
+    # Send the email
+    with smtplib.SMTP(smtp_server, smtp_port) as server:
+        server.starttls()
+        server.login(sender_email, sender_password)
+        server.sendmail(sender_email, email, msg.as_string())
+        
 def send_email(email,subject,body):
     
     smtp_server = 'smtp.gmail.com'
@@ -27,11 +68,73 @@ def send_email(email,subject,body):
         server.login(sender_email, sender_password)
         server.sendmail(sender_email,email,message)
 
-cloudinary.config(
-    cloud_name='dups4sotm',
-    api_key='141549863151677',
-    api_secret='ml0oq6T67FZeXf6AFJqhhPsDfAs'
-)
+def generate_pdf( invoice, customer, inventory):
+        buffer = BytesIO()
+        c = canvas.Canvas(buffer, pagesize=letter)
+        width, height = letter
+
+        # Logo and Business Info
+        logo_path = "./images/autocar.jpg"  # Adjust the path to your logo
+        c.drawImage(logo_path, 40, height - 80, width=50, height=50)
+        
+        c.setFont("Helvetica-Bold", 12)
+        c.drawString(100, height - 40, "Business Name")
+        c.setFont("Helvetica", 10)
+        c.drawString(100, height - 55, "Office Address")
+        c.drawString(100, height - 70, "By-pass, Kiambu road,")
+        c.drawString(100, height - 85, "Kiambu county, Kenya")
+        c.drawString(100, height - 100, "(+254) 123 456 7890")
+
+        # Invoice Info
+        c.setFont("Helvetica-Bold", 16)
+        c.setFillColorRGB(0, 0, 1)  # Blue color
+        c.drawString(width - 200, height - 40, "INVOICE")
+
+        c.setFont("Helvetica", 10)
+        c.setFillColorRGB(0, 0, 0)  # Reset to black
+        c.drawString(width - 200, height - 55, f"Date: {invoice.date_of_purchase.strftime('%Y-%m-%d') if isinstance(invoice.date_of_purchase, datetime) else invoice.date_of_purchase}")
+        c.drawString(width - 200, height - 70, f"To: {customer.first_name} {customer.last_name}")
+        c.drawString(width - 200, height - 85, f"Address: {customer.address}")
+        c.drawString(width - 200, height - 100, f"Email: {customer.email}")
+
+        # Table Headers
+        table_top = height - 130
+        c.setFont("Helvetica-Bold", 10)
+        c.drawString(50, table_top, "Car Description")
+        c.drawString(200, table_top, "Total cost")
+        c.drawString(300, table_top, "Amount paid")
+        c.drawString(400, table_top, "Balance")
+        c.drawString(500, table_top, "Total")
+
+        # Table Content
+        table_top -= 20
+        c.setFont("Helvetica", 10)
+        c.drawString(50, table_top, f"{inventory.make} {inventory.model} {inventory.year}")
+        c.drawString(200, table_top, f"{invoice.currency} {invoice.total_amount}")
+        c.drawString(300, table_top, f"{invoice.currency} {invoice.amount_paid:.2f}")
+        c.drawString(400, table_top, f"{invoice.currency} {invoice.balance}")
+        c.drawString(500, table_top, f"{invoice.currency} {invoice.amount_paid:.2f}")
+
+        # Tax and Thanks Note
+        table_top -= 40
+        c.setFont("Helvetica", 10)
+        c.drawString(400, table_top, f"Tax (15%): {invoice.currency} {invoice.tax:.2f}")
+
+        # Footer
+        footer_top = 80
+        c.setFillColorRGB(0.9, 0.9, 1)  # Light blue background
+        c.rect(30, footer_top - 30, width - 60, 40, fill=True, stroke=False)
+        c.setFillColorRGB(0, 0, 0)  # Reset to black
+        c.setFont("Helvetica", 10)
+        c.drawString(50, footer_top, "Thank you for your business")
+        c.drawString(50, footer_top - 15, "Questions? Email us at support@businessname.com")
+
+        c.showPage()
+        c.save()
+
+        buffer.seek(0)
+        return buffer.getvalue()
+
 
 
 class CheckSession(Resource):
@@ -60,7 +163,8 @@ class CheckSession(Resource):
 
 
 class Login(Resource):
-
+    
+    decorators = [limiter.limit("3 per minute")]
     def post(self):
         
         email = request.json.get("email")
@@ -87,6 +191,8 @@ class Login(Resource):
 
 
 class SignupUser(Resource):
+    decorators = [limiter.limit("5 per minute")]
+    
     @jwt_required()
     def post(self):
         user_id = get_jwt_identity()
@@ -146,10 +252,19 @@ class SignupUser(Resource):
     body=f'You have been signed up to our car dealership management system. Use this password to login into your account PASSWORD: {password} EMAIL: {email}'
 )
 
-
+        notification=Notification(
+           user_id=user_id,
+           message=f'{first_name} {last_name} added to the system successfully',
+           notification_type='Sign up'
+        )
+        
+        db.session.add(notification)
+        db.session.commit()
         return make_response(jsonify({'message': 'Sign up successful'}), 200)
 
 class UpdatePassword(Resource):
+    decorators = [limiter.limit("5 per minute")]
+    
     def post(self):
         data = request.json
 
@@ -180,6 +295,8 @@ class UpdatePassword(Resource):
 
 # in this class we are getting all the users and serializering each user using list comprehension
 class AllUsers(Resource):
+    # decorators = [limiter.limit("5 per minute")]
+    
     @jwt_required()
     def get(self):
         user_id = get_jwt_identity()
@@ -213,16 +330,19 @@ class AllUsers(Resource):
 
 
 class OneUser(Resource):
+    decorators = [limiter.limit("10 per minute")]
     @jwt_required()
     def get(self, id):
         user_id = get_jwt_identity()
 
         check_user_role = User.query.filter_by(id=user_id).first()
         
-        if check_user_role.role == "admin" and check_user_role.status == "active"  or  check_user_role.role == "seller" and check_user_role.status == "active"  :
+        if check_user_role.role == "admin" and check_user_role.status == "active"   :
             user = User.query.filter_by(id=id, role='seller').first()
         elif check_user_role.role == "super admin" and check_user_role.status == "active":
             user = User.query.filter_by(id=id).first()
+        elif check_user_role.role == "seller" and check_user_role.status == "active":
+            user = User.query.filter_by(id=user_id, role='seller').first()
         else:
             return make_response(jsonify({"message": "Un Authorized User"}), 401)
         
@@ -232,7 +352,7 @@ class OneUser(Resource):
         if not user:
             return {"message": "No user found"}
 
-        sales = Sale.query.filter_by(seller_id=user.id, status="completed").all()
+        sales = Sale.query.filter_by(seller_id=user.id).all()
         number_of_sales = len(sales)
         total_commission = sum(sale.commision for sale in sales) 
         
@@ -265,6 +385,7 @@ class OneUser(Resource):
         response = make_response(jsonify(user_data), 200)
         return response
 
+    decorators = [limiter.limit("5 per minute")]
     @jwt_required()
     def put(self, id):
         user_id = get_jwt_identity()
@@ -369,36 +490,53 @@ class OneUser(Resource):
 
 
 class INVENTORY(Resource):
-    # POST
+    # decorators = [limiter.limit("5 per minute")]
+    
     @jwt_required()
     def post(self):
         user_id = get_jwt_identity()
         check_user_role = User.query.filter_by(id=user_id).first()
+
+        # Ensure the user has the correct role to create inventory
+        if check_user_role.role != 'super admin':  # or whatever role is required
+            return make_response(jsonify({'message': 'User has no access rights to create a Car'}), 401)
+
         data = request.form
         image = request.files.get('image')
+        # import_document = request.files.get('import_document')
         gallery = request.files.getlist('gallery_images')
 
-        # print(gallery)
-        if image.filename == '':
+        if image is None or image.filename == '':
             return {'error': 'No image selected for upload'}, 400
+
+        if not all(g.filename for g in gallery):
+            return {'error': 'One or more gallery images are not selected for upload'}, 400
+
+    
 
         def allowed_file(filename):
             return '.' in filename and filename.rsplit('.', 1)[1].lower() in {'png', 'jpg', 'jpeg', 'gif', 'webp'}
-
-        if not allowed_file(image.filename) or not all(allowed_file(g.filename) for g in gallery):
-            return {'error': 'Invalid file type. Only images are allowed'}, 400
+        
+        if not allowed_file(image.filename) or not all(allowed_file(g.filename) for g in gallery) :
+            return {'error': 'One or more files have unsupported file types'}, 400
 
         try:
             image_upload_result = cloudinary.uploader.upload(image)
             gallery_upload_results = [cloudinary.uploader.upload(g) for g in gallery]
+            # import_document_result = cloudinary.uploader.upload(import_document)
         except Exception as e:
-            return {'error': f'Error uploading image: {str(e)}'}, 500
+            return {'error': f'Error uploading files: {str(e)}'}, 500
 
-        if (check_user_role.role == 'admin' and check_user_role.status == "active") or (check_user_role.role == 'super admin' and check_user_role.status == "active"):
+        try:
+            price = float(data.get('price'))
+            purchase_cost = float(data.get('purchase_cost'))
+            profit = price - purchase_cost
+
+            # Create the inventory item
             new_inventory_item = Inventory(
                 make=data.get('make'),
                 image=image_upload_result['secure_url'],
-                price=data.get('price'),
+                price=price,
                 currency=data.get('currency'),
                 model=data.get('model'),
                 year=data.get('year'),
@@ -417,33 +555,56 @@ class INVENTORY(Resource):
                 doors=data.get('doors'),
                 features=data.get('features'),
                 stock_number=data.get('stock_number'),
-                purchase_cost=data.get('purchase_cost'),
-                profit=data.get('profit'),
+                purchase_cost=purchase_cost,
+                profit=profit,
                 user_id=user_id
             )
 
             db.session.add(new_inventory_item)
             db.session.commit()
-
             db.session.refresh(new_inventory_item)
-            last_item = Inventory.query.order_by(Inventory.id.desc()).first()
 
+            # Create gallery images
             for result in gallery_upload_results:
                 gallery_image = GalleryImage(
-                    url=result['secure_url'], inventory_id=last_item.id)
+                    url=result['secure_url'], inventory_id=new_inventory_item.id)
                 db.session.add(gallery_image)
 
+            # Create importation record
+            transport = float(data.get('transport_fee'))
+            duty = float(data.get('import_duty'))
+            new_importation = Importation(
+                country_of_origin=data.get('country_of_origin'),
+                transport_fee=transport,
+                currency=data.get('currency'),
+                import_duty=duty,
+                # import_document=import_document_result['secure_url'],
+                car_id=new_inventory_item.id,
+                expense=transport + duty
+            )
+            db.session.add(new_importation)
+            db.session.commit()
+            
+            notification=Notification(
+            user_id=user_id,
+            message=f'Car Details added to the system successfully',
+            notification_type='Inventory adittion'
+            )
+        
+            db.session.add(notification)
             db.session.commit()
 
-            return make_response(jsonify({'message': 'Inventory created successfully'}), 201)
-        else:
-            return make_response(jsonify({'message': 'User has no access rights to create a Car'}), 401)
+            return make_response(jsonify({'message': 'Inventory and importation created successfully'}), 201)
+        except Exception as e:
+            db.session.rollback()
+            return {'error': f'Error creating inventory: {str(e)}'}, 500
 
-    # GET
     # @jwt_required()
+    # decorators = [limiter.limit("5 per minute")]
+    
     def get(self):
         items = Inventory.query.all()
-        return make_response(jsonify([{
+        response_data = [{
             'id': item.id,
             'make': item.make,
             'image': item.image,
@@ -468,13 +629,12 @@ class INVENTORY(Resource):
             'features': item.features,
             'stock_number': item.stock_number,
             'purchase_cost': item.purchase_cost,
-            'profit': item.profit,
-
-        } for item in items]))
-
-
+            'profit': item.profit
+        } for item in items]
+        return jsonify(response_data)
 # continue the README from here
 class inventory_update(Resource):
+    decorators = [limiter.limit("5 per minute")]
     @jwt_required()
     def put(self, id):
         user_id = get_jwt_identity()
@@ -675,6 +835,7 @@ class UpdateImportation(Resource):
         else:
             return make_response(jsonify({"message": "Unauthorized User"}), 404)
 class DetailCustomer(Resource):
+    decorators = [limiter.limit("5 per minute")]
     @jwt_required()
     def get(self):
         # Get the current user's ID from the JWT token
@@ -701,6 +862,7 @@ class DetailCustomer(Resource):
 
             return make_response(jsonify(serialized_customers), 200)
 class Customers(Resource):
+    decorators = [limiter.limit("5 per minute")]
     @jwt_required()
     def get(self):
         # Get the current user's ID from the JWT token
@@ -728,7 +890,7 @@ class Customers(Resource):
             } for customer in customers]
 
             return make_response(jsonify(serialized_customers), 200)
-        if check_user_role.role == 'super admin' and check_user_role.status == "active" or check_user_role.role == 'admin' and check_user_role.status == "active" :
+        elif check_user_role.role == 'super admin' and check_user_role.status == "active" or check_user_role.role == 'admin' and check_user_role.status == "active" :
 
             # Retrieve only the customers associated with the current seller (user)
             customers = Customer.query.all()
@@ -751,7 +913,8 @@ class Customers(Resource):
             return make_response(jsonify(serialized_customers), 200)
         else:
             return make_response(jsonify({'message':"User unauthorized"}), 422)
-    
+        
+    decorators = [limiter.limit("5 per minute")]
     @jwt_required()  # Require JWT authentication
     def post(self):
         
@@ -810,12 +973,26 @@ class Customers(Resource):
 
                 seller_id=user_id  # Assign the current user ID as the seller ID
             )
-
+            
+            
+# in the inventory the stock number should be generated in the backend
             db.session.add(new_customer)
             db.session.commit()
+            
+            notification=Notification(
+            user_id=user_id,
+            message=f'{first_name} {last_name} added to the system successfully',
+            notification_type='Customer Adittion'
+            )
+            
+            db.session.add(notification)
+            db.session.commit()
+            
+            send_email(email=email,subject="Customer Registration",body="Your Information has been recorded Successful and Safe.Thank You and wlcome again")
 
             return {'message': 'Customer details added successfully'}, 201
-class UpdateDetails(Resource):    
+class UpdateDetails(Resource):  
+    decorators = [limiter.limit("5 per minute")]  
     @jwt_required()
     def put(self, customer_id):
         # Get the current user's identity
@@ -870,6 +1047,7 @@ class DeleteDetails(Resource):
         return {'message': 'Customer deleted successfully'}, 200
 
 class SaleResource(Resource):
+    # decorators = [limiter.limit("2 per minute")]
     # POST
     @jwt_required()
     def post(self):
@@ -879,22 +1057,24 @@ class SaleResource(Resource):
         if check_user_role.role == 'seller' and check_user_role.status == "active":
             data = request.get_json()
 
-            # commision =data.get('commision')
-            
-            status=data.get('status')
-            history=data.get('history')
-            discount=data.get('discount')
-            sale_date=data.get('sale_date')
-            customer_id=data.get('customer_id')
-            seller_id=user_id
-            inventory_id=data.get('inventory_id')
-            promotions=data.get('promotions')
-            
-            if not status or not history or not discount or not sale_date or not customer_id or not inventory_id  :
-                inventory =Inventory.query.filter_by(id =inventory_id).first()
-                
+            status = data.get('status')
+            history = data.get('history')
+            discount = data.get('discount')
+            sale_date = data.get('sale_date')
+            customer_id = data.get('customer_id')
+            seller_id = user_id
+            inventory_id = data.get('inventory_id')
+            promotions = data.get('promotions')
+            print(history)
+
+            if status and discount is not None and sale_date and customer_id and inventory_id:
+                inventory = Inventory.query.filter_by(id=inventory_id).first()
+                # print(inventory)
+                if not inventory:
+                    return make_response(jsonify({'message': 'Inventory not found'}), 404)
+
                 commision = inventory.price * 0.20
-                
+
                 sale = Sale(
                     commision=commision,
                     status=status,
@@ -910,13 +1090,49 @@ class SaleResource(Resource):
                 db.session.add(sale)
                 db.session.commit()
 
-                return make_response(jsonify({'message': 'Sale created successfully'}), 201)
-            
+                # Calculate company profit
+                purchase_cost = inventory.purchase_cost
+                sale_price = inventory.price - discount
+                company_profit = sale_price - purchase_cost - commision
+
+                # Get importation_id from inventory
+                importation = Importation.query.filter_by(car_id=inventory_id).first()
+                # print(importation)
+                if not importation:
+                    return make_response(jsonify({'message': 'Importation not found'}), 404)
+
+                # Create report
+                report = Report(
+                    company_profit=company_profit,
+                    sale_id=sale.id,
+                    inventory_id=inventory_id,
+                    customer_id=customer_id,
+                    seller_id=seller_id,
+                    importation_id=importation.id
+                )
+
+                db.session.add(report)
+                db.session.commit()
+                
+                notification=Notification(
+                user_id=user_id,
+                message=f'Report added to the system successfully',
+                notification_type='Sale'
+                )
+                
+                db.session.add(notification)
+                db.session.commit()
+
+                return make_response(jsonify({
+                    'message': 'Sale and report created successfully',
+                    'sale_id': sale.id
+                }), 201)
             else:
-                return make_response(jsonify({'message': 'Unauthorized User'}), 401)
+                return make_response(jsonify({'message': 'Enter all required data'}), 400)
         else:
-            return make_response(jsonify({'message': 'Enter all Data required'}), 401)
-    # GET
+            return make_response(jsonify({'message': 'Unauthorized user'}), 401)
+
+    # decorators = [limiter.limit("5 per minute")]
     @jwt_required()
     def get(self):
         user_id = get_jwt_identity()
@@ -925,7 +1141,8 @@ class SaleResource(Resource):
 
         if check_user_role.role == 'seller' and check_user_role.status == "active":
             serialized_sales = []
-            sales = Sale.query.filter_by(seller_id=check_user_role.id).all()
+            sales = Sale.query.filter_by(seller_id=check_user_role.id).filter(or_(Sale.status == "Completed", Sale.status == "Pending")).all()
+
             customers = Customer.query.all()
             customer_dict = {customer.id: customer for customer in customers}  # Create a dictionary for quick lookup
             
@@ -1045,6 +1262,7 @@ class SaleResource(Resource):
 
 
 class SaleReviewIfAlreadyCreated(Resource):
+    decorators = [limiter.limit("5 per minute")]
     @jwt_required()
     def get(self):
         user_id = get_jwt_identity()
@@ -1098,6 +1316,7 @@ class SaleReviewIfAlreadyCreated(Resource):
 
 class SaleItemResource(Resource):
     # PUT
+    decorators = [limiter.limit("5 per minute")]
     @jwt_required()
     def put(self, sale_id):
         user_id = get_jwt_identity()
@@ -1122,8 +1341,16 @@ class SaleItemResource(Resource):
             
             # Commit the changes to the database
             db.session.commit()
+            notification=Notification(
+            user_id=user_id,
+            message=f'Sale Updated  successfully',
+            notification_type='Sale'
+            )
+            
+            db.session.add(notification)
+            db.session.commit()
 
-            return make_response(jsonify({'message': 'Sale updated successfully'}), 201)
+            return make_response(jsonify({'message': 'Sale updated successfully', 'sale_id': sale.id}), 201)
 
     # DELETE
     # who should be deleting a sale ?
@@ -1133,34 +1360,10 @@ class SaleItemResource(Resource):
         db.session.commit()
 
         return jsonify({'message': 'Sale deleted successfully'}, 201)
-# class GeneralSale(Resource):
-#     @jwt_required
-#     def get(self):
-#         user_id = get_jwt_identity()
 
-#         check_user_role = User.query.filter_by(id=user_id).first()
-
-#         if (check_user_role.role == 'admin' and check_user_role.status == "active") or (check_user_role.role == 'super admin' and check_user_role.status == "active"):
-#             serialized_sales = []
-#             for sale in Sale.query.all():
-#                 customer = Customer.query.filter_by(id=sale.customer_id).first()
-#                 seller = User.query.filter_by(id=sale.seller_id).first()
-#                 inventory = Inventory.query.filter_by(id=sale.inventory_id).first()
-#                 serialized_sale = {
-#                     # "id": sale.id,
-#                     "customer": len(customer),
-#                     "seller": len(seller),
-#                     "inventory_id": len(inventory),
-                    
-#                 }
-#                 serialized_sales.append(serialized_sale)
-#             return make_response(serialized_sales)  # Use serialized_sales instead of serialized_sale
-        
-#         else:
-#             return make_response(({"message":"User unauthorized"}))
-            
     
 class AdminSales(Resource):
+    decorators = [limiter.limit("5 per minute")]
     @jwt_required()
     def get(self):
         user_id = get_jwt_identity()
@@ -1209,6 +1412,7 @@ class AdminSales(Resource):
 
         
 class OneSellerAdmin(Resource):
+    decorators = [limiter.limit("5 per minute")]
     @jwt_required()
     def get(self, sale_id):
         user_id = get_jwt_identity()
@@ -1298,14 +1502,15 @@ class OneSellerAdmin(Resource):
         else:
             return make_response(jsonify({"message":"User unauthorized"}), 401)  
 
-class Report(Resource):
+class ReportRoute(Resource):
     # POST
+    # decorators = [limiter.limit("5 per minute")]
     @jwt_required()
     def post(self):
         user_id = get_jwt_identity()
-
         check_user_role = User.query.filter_by(id=user_id).first()
-        if check_user_role.role == 'admin' and check_user_role.status == "active" or check_user_role.role == 'super admin' and check_user_role.status == "active":
+
+        if check_user_role and (check_user_role.role in ['admin', 'super admin'] and check_user_role.status == "active"):
             data = request.get_json()
 
             company_profit = data.get('company_profit')
@@ -1316,12 +1521,12 @@ class Report(Resource):
             seller_id = data.get('seller_id')
             importation_id = data.get('importation_id')
             
-            if not all([company_profit, sales_id, expenses, sale_date]):
+            if not all([company_profit, sales_id, expenses, sale_date, customer_id, seller_id, importation_id]):
                 return make_response(jsonify({'message': 'Please provide all required data'}), 400)
 
             new_report = Report(
                 company_profit=company_profit,
-                sales_id=sales_id,
+                sale_id=sales_id,
                 expenses=expenses,
                 sale_date=sale_date,
                 customer_id=customer_id,
@@ -1336,57 +1541,95 @@ class Report(Resource):
         else:
             return make_response(jsonify({'message': 'User has no access rights to create a report'}), 401)
 
-  # GET
-@jwt_required()
-def get(self):
-    user_id = get_jwt_identity()
+    # GET
+    # decorators = [limiter.limit("5 per minute")]
+    @jwt_required()
+    def get(self):
+        user_id = get_jwt_identity()
+        check_user_role = User.query.filter_by(id=user_id).first()
 
-    check_user_role = User.query.filter_by(id=user_id).first()
+        if check_user_role and (check_user_role.role in ['admin', 'super admin'] and check_user_role.status == "active"):
+            reports = Report.query.all()
+            serialized_reports = []
+            for report in reports:
+                customer = Customer.query.filter_by(id=report.customer_id).first()
+                seller = User.query.filter_by(id=report.seller_id).first()
+                importation = Importation.query.filter_by(id=report.importation_id).first()
+                sale = Sale.query.filter_by(id=report.sale_id).first()
 
-    if check_user_role.role == 'admin' and check_user_role.status == "active" or check_user_role.role == 'super admin' and check_user_role.status == "active":
-        reports = Report.query.all()
-        serialized_reports = []
-        for report in reports:
-            customer = Customer.query.filter_by(id=report.customer_id).first()
-            seller = User.query.filter_by(id=report.seller_id).first()
-            importation = Importation.query.filter_by(id=report.importation_id).first()
-            sale = Sale.query.filter_by(id=report.sales_id).first()
-
-            serialized_report = {
-                'id': report.id,
-                'company_profit': report.company_profit,
-                'expenses': report.expenses,
-                'sale_date': report.sale_date,
-                'customer': {
-                    'id': customer.id,
-                    'Names': f'{customer.first_name} {customer.last_name}',
-                    'email': customer.email,
-                },
-                'seller': {
-                    'id': seller.id,
-                    'Names': f'{seller.first_name} {seller.last_name}',
-                    'email': seller.email,
-                },
-                'importation': {
-                    'id': importation.id,
-                    'name': importation.name,
-                },
-                'sale': {
-                    'id': sale.id,
-                    'commision': sale.commision,
-                    'status': sale.status,
-                    'history': sale.history,
-                    'discount': sale.discount,
-                    'sale_date': sale.sale_date,
-                    'promotions': sale.promotions,
+                serialized_report = {
+                    'id': report.id,
+                    'company_profit': report.company_profit,
+                    'expenses': importation.expense,
+                    'sale_date': report.created_at,
+                    'customer': {
+                        'id': customer.id if customer else None,
+                        'Names': f'{customer.first_name} {customer.last_name}' if customer else None,
+                        'email': customer.email if customer else None,
+                    },
+                    'seller': {
+                        'id': seller.id if seller else None,
+                        'Names': f'{seller.first_name} {seller.last_name}' if seller else None,
+                        'email': seller.email if seller else None,
+                    },
+                    'importation': {
+                        'id': importation.id if importation else None,
+                        'name': importation.country_of_origin if importation else None,
+                    },
+                    'sale': {
+                        'id': sale.id if sale else None,
+                        'commision': sale.commision if sale else None,
+                        'status': sale.status if sale else None,
+                        'history': sale.history if sale else None,
+                        'discount': sale.discount if sale else None,
+                        'sale_date': sale.sale_date if sale else None,
+                        'promotions': sale.promotions if sale else None,
+                    }
                 }
-            }
-            serialized_reports.append(serialized_report)
-        return make_response(jsonify(serialized_reports), 200)
-    else:
-        return make_response(jsonify({'message': 'User unauthorized'}), 401)
+                serialized_reports.append(serialized_report)
+            return make_response(jsonify(serialized_reports), 200)
+        elif check_user_role.role =='seller':
+            reports = Report.query.filter_by(seller_id=user_id).all()
+            serialized_reports = []
+            for report in reports:
+                customer = Customer.query.filter_by(id=report.customer_id).first()
+                seller = User.query.filter_by(id=report.seller_id).first()
+                importation = Importation.query.filter_by(id=report.importation_id).first()
+                sale = Sale.query.filter_by(id=report.sale_id).first()
 
-
+                serialized_report = {
+                    'id': report.id,
+                    'company_profit': report.company_profit,
+                    'expenses': importation.expense,
+                    'sale_date': report.created_at,
+                    'customer': {
+                        'id': customer.id if customer else None,
+                        'Names': f'{customer.first_name} {customer.last_name}' if customer else None,
+                        'email': customer.email if customer else None,
+                    },
+                    'seller': {
+                        'id': seller.id if seller else None,
+                        'Names': f'{seller.first_name} {seller.last_name}' if seller else None,
+                        'email': seller.email if seller else None,
+                    },
+                    'importation': {
+                        'id': importation.id if importation else None,
+                        'name': importation.country_of_origin if importation else None,
+                    },
+                    'sale': {
+                        'id': sale.id if sale else None,
+                        'commision': sale.commision if sale else None,
+                        'status': sale.status if sale else None,
+                        'history': sale.history if sale else None,
+                        'discount': sale.discount if sale else None,
+                        'sale_date': sale.sale_date if sale else None,
+                        'promotions': sale.promotions if sale else None,
+                    }
+                }
+                serialized_reports.append(serialized_report)
+            return make_response(jsonify(serialized_reports), 200)
+        else:
+            return make_response(jsonify({'message': 'User unauthorized'}), 401)
 class Report_update(Resource):
     # PATCH
     @jwt_required()
@@ -1429,32 +1672,64 @@ class Report_update(Resource):
 
 class ReceiptAll(Resource):
     # POST
+    decorators = [limiter.limit("5 per minute")]
     @jwt_required()
     def post(self):
         user_id = get_jwt_identity()
-
         check_user_role = User.query.filter_by(id=user_id).first()
-        if check_user_role.role == 'admin' and check_user_role.status == "active" or check_user_role.role == 'super admin' and check_user_role.status == "active" or check_user_role.role == 'seller' and check_user_role.status == "active":
+        
+        if check_user_role.role in ['admin', 'super admin', 'seller'] and check_user_role.status == "active":
             data = request.json
+            invoice = Invoice.query.filter_by(id=data.get('invoice_id')).first()
+            customer = Customer.query.filter_by(id=data.get('customer_id')).first()
+            inventory = Inventory.query.filter_by(id=invoice.vehicle_id).first()
+            
+            sale = Sale.query.filter_by(id=inventory.id).order_by(Sale.created_at.desc()).first()
+
 
             new_receipt = Receipt(
                 user_id=user_id,
                 customer_id=data.get('customer_id'),
                 invoice_id=data.get('invoice_id'),
                 amount_paid=data.get('amount_paid'),
-                # remeber to correct here to caculate commission as expected
+                # remeber to correct here to calculate commission as expected
                 # commission=200
             )
 
             db.session.add(new_receipt)
             db.session.commit()
-
             db.session.refresh(new_receipt)
-            return make_response(jsonify({'message': 'Receipt created successfully'}), 201)
+
+            # os.makedirs('receipts', exist_ok=True)
+            # pdf_file_path = f"receipts/receipt_{new_receipt.id}.pdf"
+            # pdf_data = generate_receipt_pdf(new_receipt, customer, sale)
+
+        #     with open(pdf_file_path, 'wb') as f:
+        #         f.write(pdf_data)
+            
+        #     send_email_with_pdf(
+        #     email=customer.email,
+        #     subject=f'Invoice for {inventory.make} {inventory.model}',
+        #     body=f'Thanks You For Doing Business With Us.Here is you Confirmation Receipt',
+        #     attachment=pdf_data,
+        #     attachment_name=f'invoice_{new_receipt.id}.pdf'
+        # )
+        
+            notification=Notification(
+            user_id=user_id,
+            message=f'Receipt added to the system successfully',
+            notification_type='Receipt'
+            )
+            
+            db.session.add(notification)
+            db.session.commit()
+
+            return make_response(jsonify({'message': 'Receipt created successfully', 'receipt_id': new_receipt.id}), 201)
         else:
             return make_response(jsonify({'message': 'User unauthorized'}), 401)
 
     # GET
+    decorators = [limiter.limit("5 per minute")]
     @jwt_required()
     
     
@@ -1513,6 +1788,7 @@ class ReceiptAll(Resource):
 
 class Receipt_update(Resource):
     # PATCH
+    decorators = [limiter.limit("5 per minute")]
     @jwt_required()
     # add for seller to fetch their own only
     def patch(self, id):
@@ -1581,12 +1857,65 @@ class Receipt_update(Resource):
             
         else:
             return make_response(jsonify({'message': 'User unauthorized'}), 401)
+        
+class OneReceipt(Resource):
+    decorators = [limiter.limit("5 per minute")]
+    @jwt_required()
+    def get(self, id):
+        user_id = get_jwt_identity()
+
+        check_user_role = User.query.filter_by(id=user_id).first()
+        
+        if not check_user_role or check_user_role.status != "active":
+            return make_response(jsonify({'message': 'User unauthorized'}), 401)
+
+        if check_user_role.role in ['admin', 'super admin']:
+            receipt = Receipt.query.filter_by(id=id).first()
+        elif check_user_role.role == 'seller':
+            receipt = Receipt.query.filter_by(user_id=user_id, id=id).first()
+        else:
+            return make_response(jsonify({'message': 'User unauthorized'}), 401)
+
+        if not receipt:
+            return make_response(jsonify({'message': 'Receipt not found'}), 404)
+
+        customer = Customer.query.filter_by(id=receipt.customer_id).first()
+        invoice = Invoice.query.filter_by(id=receipt.invoice_id).first()
+        user = User.query.filter_by(id=receipt.user_id).first()
+
+        if not (customer and invoice and user):
+            return make_response(jsonify({'message': 'Data inconsistency detected'}), 500)
+
+        serialized_receipt = {
+            'id': receipt.id,
+            'user': {
+                'id': user.id,
+                'names': f'{user.first_name} {user.last_name}',
+                'email': user.email,
+            },
+            'customer': {
+                'id': customer.id,
+                'Names': f'{customer.first_name} {customer.last_name}',
+                'email': customer.email,
+            },
+            'invoice': {
+                'id': invoice.id,
+                'amount_paid': invoice.amount_paid,
+                'total_amount': invoice.total_amount,  # Assuming this field exists
+                'balance': invoice.balance,  # Assuming this field exists
+            },
+            'amount_paid': receipt.amount_paid,
+            'created_at': receipt.created_at
+        }
+
+        return make_response(jsonify(serialized_receipt), 200)
 
 class InvoiceCreate(Resource):
+    # decorators = [limiter.limit("2 per minute")]
     @jwt_required()
     def post(self):
         user_id = get_jwt_identity()
-        current_user = User.query.get(user_id)
+        current_user = User.query.filter_by(id=user_id).first()
 
         if current_user.role != 'seller':
             return make_response(jsonify({'message': 'Unauthorized - Only sellers can create invoices'}), 403)
@@ -1598,63 +1927,88 @@ class InvoiceCreate(Resource):
             if field not in data:
                 return make_response(jsonify({'message': f'Missing required field: {field}'}), 400)
 
-        try:
-            # Fetch inventory by vehicle_id
-            id = data['vehicle_id']
-            paid = data['amount_paid']
-            inventory = Inventory.query.filter_by(id=id).first()
+        # try:
+        # Fetch inventory by vehicle_id
+        id = data['vehicle_id']
+        paid = data['amount_paid']
+        inventory = Inventory.query.filter_by(id=id).first()
 
-            if not inventory:
-                return make_response(jsonify({'message': 'Invalid vehicle_id'}), 400)
+        if not inventory:
+            return make_response(jsonify({'message': 'Invalid vehicle_id'}), 400)
 
-            balance = float(inventory.price) - float(paid)
-            customer_id = data['customer_id']
-            curr=data['currency']
-            customer_details = Customer.query.get(customer_id)
-            new_invoice = Invoice(
-                date_of_purchase=datetime.strptime(data['date_of_purchase'], "%Y-%m-%d"),
-                method=data['method'],
-                amount_paid=paid,
-                fee=data['fee'],
-                tax=data['tax'],
-                currency=curr,
-                seller_id=user_id, 
-                sale_id=data['sale_id'], 
-                customer_id=customer_id,
-                vehicle_id=id,
-                balance=balance,
-                total_amount=inventory.price,  # Use inventory price as total_amount
-                installments=data.get('installments'),  # Optional fields
-                pending_cleared=data.get('pending_cleared'),
-                signature=data.get('signature'),
-                warranty=data.get('warranty'),
-                terms_and_conditions=data.get('terms_and_conditions'),
-                agreement_details=data.get('agreement_details'),
-                additional_accessories=data.get('additional_accessories'),
-                notes_instructions=data.get('notes_instructions'),
-                payment_proof=data.get('payment_proof')
+        balance = float(inventory.price) - float(paid)
+        customer_id = data['customer_id']
+        print(customer_id)
+        curr = data['currency']
+        customer_details = Customer.query.filter_by(id=customer_id).first()
+
+        new_invoice = Invoice(
+            date_of_purchase=datetime.strptime(data['date_of_purchase'], "%Y-%m-%d"),
+            method=data['method'],
+            amount_paid=paid,
+            fee=data['fee'],
+            tax=data['tax'],
+            currency=curr,
+            seller_id=user_id,
+            sale_id=data['sale_id'],
+            customer_id=customer_id,
+            vehicle_id=id,
+            balance=balance,
+            total_amount=inventory.price,  # Use inventory price as total_amount
+            installments=data.get('installments'),  # Optional fields
+            pending_cleared=data.get('pending_cleared'),
+            signature=data.get('signature'),
+            warranty=data.get('warranty'),
+            terms_and_conditions=data.get('terms_and_conditions'),
+            agreement_details=data.get('agreement_details'),
+            additional_accessories=data.get('additional_accessories'),
+            notes_instructions=data.get('notes_instructions'),
+            payment_proof=data.get('payment_proof')
+        )
+        db.session.add(new_invoice)
+        db.session.commit()
+
+        # Generate PDF
+    
+        pdf_data = generate_pdf(new_invoice, customer_details, inventory)
+        
+        
+        notification=Notification(
+            user_id=user_id,
+            message=f'Invoice  added to the system successfully',
+            notification_type='Invoice'
             )
-            db.session.add(new_invoice)
-            db.session.commit()
-            # send email to the customer
-            send_email(email=customer_details.email, 
-                       subject=f'Inventory for {inventory.make} {inventory.model}', 
-                       body=f'Thank You for purchasing with us this car {inventory.make} {inventory.model}. You have currently paid {curr} {paid} remaining{curr} {balance}. Please complete the balance using the installments discussed during the purchase of the car. Remember to ask for the print out of your Invoice kindly! Thank you again')
+            
+        db.session.add(notification)
+        db.session.commit()
+        # Send email to the customer with PDF attachment
+        send_email_with_pdf(
+            email=customer_details.email,
+            subject=f'Invoice for {inventory.make} {inventory.model}',
+            body=f'Thank You for purchasing with us this car {inventory.make} {inventory.model}. '
+                    f'You have currently paid {curr} {paid} remaining {curr} {balance}. Please complete the balance using the installments discussed during the purchase of the car. '
+                    f'Remember to ask for the print out of your Invoice kindly! Thank you again',
+            attachment=pdf_data,
+            attachment_name=f'invoice_{new_invoice.id}.pdf'
+        )
 
-            return make_response(jsonify({'message': 'Invoice created successfully', 'invoice_id': new_invoice.id}), 201)
-        except Exception as e:
-            print(e)  # Log the exception for debugging
-            return make_response(jsonify({'message': 'Internal Server Error'}), 500)
+        return make_response(jsonify({'message': 'Invoice created successfully', 'invoice_id': new_invoice.id}), 201)
+        # except Exception as e:
+        #     print(e)  # Log the exception for debugging
+            # return make_response(jsonify({'message': 'Internal Server Error '}), 500)
+
+    
 
 
 class GeneralInvoices(Resource):
+    # decorators = [limiter.limit("5 per minute")]
+    
     @jwt_required()
     def get(self):
         user_id = get_jwt_identity()
-
         check_user_role = User.query.filter_by(id=user_id).first()
-        
-        if check_user_role.role == 'admin' and check_user_role.status == "active" or check_user_role.role == 'super admin' and check_user_role.status == "active":
+
+        if check_user_role.role in ['admin', 'super admin'] and check_user_role.status == "active":
             invoices = Invoice.query.all()
 
             # Create a dictionary to store aggregated data for each seller
@@ -1662,27 +2016,33 @@ class GeneralInvoices(Resource):
 
             # Loop through each invoice and aggregate data
             for invoice in invoices:
+                seller_id = invoice.user.id
                 seller_name = f"{invoice.user.first_name} {invoice.user.last_name}"  # Assuming 'first_name' and 'last_name' fields in the User model
-                seller_data[seller_name]['total_customers'] += 1
-                seller_data[seller_name]['total_sales'] += 1 # Increment total sales sold
-                seller_data[seller_name]['total_inventory_sold'] += 1  # Increment total inventory sold
+                if seller_id not in seller_data:
+                    seller_data[seller_id]['seller_name'] = seller_name
+                seller_data[seller_id]['total_customers'] += 1
+                seller_data[seller_id]['total_sales'] += 1  # Increment total sales sold
+                seller_data[seller_id]['total_inventory_sold'] += 1  # Increment total inventory sold
 
             # Convert the aggregated data into a list of dictionaries
             aggregated_invoices = [
                 {
-                    'seller_name': seller_name,
+                    'seller_id': seller_id,
+                    'seller_name': data['seller_name'],
                     'total_customers': data['total_customers'],
                     'total_sales': data['total_sales'],
                     'total_inventory_sold': data['total_inventory_sold']
                 }
-                for seller_name, data in seller_data.items()
+                for seller_id, data in seller_data.items()
             ]
 
             return make_response(jsonify(aggregated_invoices), 200)
         else:
-            return make_response(jsonify({"Message":"user unauthorized"}), 401)
+            return make_response(jsonify({"Message": "user unauthorized"}), 401)
 
 class AllInvoices(Resource):
+    # decorators = [limiter.limit("5 per minute")]
+    
     @jwt_required()
     def get(self):
         user_id = get_jwt_identity()
@@ -1744,6 +2104,7 @@ class AllInvoices(Resource):
                     'amount_paid': invoice.amount_paid,
                     'fee': invoice.fee,
                     'tax': invoice.tax,
+                    'sale_id': invoice.sale_id,
                     'currency': invoice.currency,
                     'seller_name': {
                         'id': seller.id,
@@ -1779,15 +2140,17 @@ class AllInvoices(Resource):
         else:
             return make_response(jsonify({'message': 'User unauthorized'}), 401)
 class AdminInvoice(Resource):
+    # decorators = [limiter.limit("5 per minute")]
+    
     @jwt_required()
-    def get(self, seller_name):
+    def get(self, seller_name,id):
         user_id = get_jwt_identity()
         check_user_role = User.query.filter_by(id=user_id).first()
 
         if not check_user_role:
             return make_response(jsonify({'Message': "User not found"}), 404)
 
-        user = User.query.filter_by(first_name=seller_name).first()
+        user = User.query.filter_by(first_name=seller_name, id=id).first()
 
         if not user:
             return make_response(jsonify({'Message': "No user found"}), 404)
@@ -1848,6 +2211,7 @@ class AdminInvoice(Resource):
 
 class InvoiceGet(Resource):
     
+    # decorators = [limiter.limit("5 per minute")]
     @jwt_required()
     def get(self, invoice_id):
         user_id = get_jwt_identity()
@@ -1905,27 +2269,46 @@ class InvoiceGet(Resource):
         else:
             return make_response(jsonify({'message': 'User unauthorized'}), 401)
 class InvoiceUpdate(Resource):
+    decorators = [limiter.limit("3 per minute")]
     @jwt_required()
     def put(self, invoice_id):
         user_id = get_jwt_identity()
-
         check_user_role = User.query.filter_by(id=user_id).first()
+
         if check_user_role.role == 'seller' and check_user_role.status == "active":
             invoice = Invoice.query.filter_by(id=invoice_id).first()
-            if invoice.seller_id==user_id:
+            if invoice.seller_id == user_id:
+                data = request.json
+                amount_paid = data.get('amount_paid')
+                total_paid = float(amount_paid) + float(invoice.amount_paid)
                 
-
-                data = request.get_json()
-                for key, value in data.items():
-                    if hasattr(invoice, key):
-                        setattr(invoice, key, value)
-
+                invoice.amount_paid = total_paid
+                invoice.balance = float(invoice.total_amount) - float(total_paid)
                 db.session.commit()
+
+                # Update PDF and send email if needed
+                customer_details = Customer.query.filter_by(id=invoice.customer_id).first()
+                inventory = Inventory.query.filter_by(id=invoice.vehicle_id).first()
+                pdf_data = generate_pdf(invoice, customer_details, inventory)
+
+                send_email_with_pdf(
+                    email=customer_details.email,
+                    subject=f'Updated Invoice for {inventory.make} {inventory.model}',
+                    body=(
+                        f'Thank you for your payment towards {inventory.make} {inventory.model}. '
+                        f'You have currently paid {invoice.currency} {total_paid}, remaining balance is {invoice.currency} {invoice.balance}. '
+                        f'Please complete the balance using the installments discussed. '
+                        f'Remember to ask for the print out of your updated invoice. Thank you again!'
+                    ),
+                    attachment=pdf_data,
+                    attachment_name=f'updated_invoice_{invoice.id}.pdf'
+                )
+
                 return make_response(jsonify({'message': 'Invoice updated successfully'}), 200)
             return make_response(jsonify({'message': 'User unauthorized'}), 401)
         else:
-            
             return make_response(jsonify({'message': 'User unauthorized'}), 401)
+
 # this route is not protected only the seller can produce an invoice
 class InvoiceDelete(Resource):
     @jwt_required()
@@ -1945,7 +2328,7 @@ class InvoiceDelete(Resource):
         else:
             return make_response(jsonify({'message': 'User unauthorized'}), 401)
         
-class Notification(Resource):
+class AllNotification(Resource):
     # POST
     @jwt_required()
     def post(self):
@@ -1973,98 +2356,92 @@ class Notification(Resource):
         else:
             return make_response(jsonify({'message': 'User unauthorized'}), 401)
 
- # GET
-@jwt_required()
- 
-def get(self):
-    user_id = get_jwt_identity()
+    # GET
+    @jwt_required()
+    
+    def get(self):
+        user_id = get_jwt_identity()
 
-    check_user_role = User.query.filter_by(id=user_id).first()
+        check_user_role = User.query.filter_by(id=user_id).first()
 
-    if check_user_role.role == 'admin' and check_user_role.status == "active" or  check_user_role.role == 'super admin' and check_user_role.status == "active":
-        notifications = Notification.query.all()
-        serialized_notifications = []
-        for notification in notifications:
-            customer = Customer.query.filter_by(id=notification.customer_id).first()
+        if check_user_role.role == 'admin' and check_user_role.status == "active" or  check_user_role.role == 'super admin' and check_user_role.status == "active":
+            notifications = Notification.query.all()
+            serialized_notifications = []
+            for notification in notifications:
+                user = User.query.filter_by(id=notification.user_id).first()
 
-            serialized_notification = {
-                'id': notification.id,
-                'user_id': notification.user_id,
-                'customer_id': notification.customer_id,
-                'notification_type': notification.notification_type,
-                'message': notification.message,
-                'time_stamp': notification.time_stamp,
-                'customer': {
-                    'id': customer.id,
-                    'Names': f'{customer.first_name} {customer.last_name}',
-                    'email': customer.email,
+                serialized_notification = {
+                    'id': notification.id,
+                    'admin_read': notification.admin_read,
+                    'super_admin_read': notification.super_admin_read,
+                    # 'customer_id': notification.customer_id,
+                    'notification_type': notification.notification_type,
+                    'message': notification.message,
+                    'time_stamp': notification.created_at,
+                    'user': {
+                        'id': user.id,
+                        'Names': f'{user.first_name} {user.last_name}',
+                        'email': user.email,
+                    }
                 }
-            }
-            serialized_notifications.append(serialized_notification)
-        return make_response(jsonify(serialized_notifications), 200)
-    elif check_user_role.role == 'seller' and check_user_role.status == "active" :
-        notifications = Notification.query.filter_by(user_id=user_id).all()
-        serialized_notifications = []
-        for notification in notifications:
-            customer = Customer.query.filter_by(id=notification.customer_id).first()
+                serialized_notifications.append(serialized_notification)
+            return make_response(jsonify(serialized_notifications), 200)
+        elif check_user_role.role == 'seller' and check_user_role.status == "active" :
+            notifications = Notification.query.filter_by(user_id=user_id).all()
+            serialized_notifications = []
+            for notification in notifications:
+                user = User.query.filter_by(id=notification.user_id).first()
 
-            serialized_notification = {
-                'id': notification.id,
-                'user_id': notification.user_id,
-                'customer_id': notification.customer_id,
-                'notification_type': notification.notification_type,
-                'message': notification.message,
-                'time_stamp': notification.time_stamp,
-                'customer': {
-                    'id': customer.id,
-                    'Names': f'{customer.first_name} {customer.last_name}',
-                    'email': customer.email,
+                serialized_notification = {
+                    'id': notification.id,
+                    'seller_read': notification.seller_read,
+                    # 'customer_id': notification.customer_id,
+                    'notification_type': notification.notification_type,
+                    'message': notification.message,
+                    'time_stamp': notification.created_at,
+                    'user': {
+                        'id': user.id,
+                        'Names': f'{user.first_name} {user.last_name}',
+                        'email': user.email,
+                    }
                 }
-            }
-            serialized_notifications.append(serialized_notification)
-        return make_response(jsonify(serialized_notifications), 200)
-    else:
-        return make_response(jsonify({'message': 'User unauthorized'}), 401)
+                serialized_notifications.append(serialized_notification)
+            return make_response(jsonify(serialized_notifications), 200)
+        else:
+            return make_response(jsonify({'message': 'User unauthorized'}), 401)
 
 
 
 class Notification_update(Resource):
-    # PATCH
     @jwt_required()
-    
     def patch(self, id):
         user_id = get_jwt_identity()
         check_user_role = User.query.filter_by(id=user_id).first()
 
-        if check_user_role.role == 'admin' and check_user_role.status == "active"  or check_user_role.role == 'super admin' and check_user_role.status == "active":
-            data = request.json
+        if not check_user_role:
+            return {'message': 'User not found'}, 404
 
-            notification = Notification.query.filter_by(id=id).first()
-            if not notification:
-                return {'message': 'Notification not found'}, 404
+        notification = Notification.query.filter_by(id=id).first()
+        if not notification:
+            return {'message': 'Notification not found'}, 404
 
-            for key, value in data.items():
-                if hasattr(notification, key):
-                    setattr(notification, key, value)
+        if check_user_role.status == "active":
+            if check_user_role.role == 'admin':
+                notification.admin_read = True
+            elif check_user_role.role == 'super admin':
+                notification.super_admin_read = True
+            elif check_user_role.role == 'seller':
+                if notification.user_id == user_id:
+                    notification.seller_read = True
+                else:
+                    return {'message': 'User unauthorized'}, 401
+            else:
+                return {'message': 'User unauthorized'}, 401
 
             db.session.commit()
             return {'message': 'Notification updated successfully'}, 200
-        elif check_user_role.role == 'seller' and check_user_role.status == "active" :
-            data = request.json
-
-            notification = Notification.query.filter_by(id=id).first()
-            if notification.user_id ==user_id:
-                
-                for key, value in data.items():
-                    if hasattr(notification, key):
-                        setattr(notification, key, value)
-
-                db.session.commit()
-                return {'message': 'Notification updated successfully'}, 200
-            else:
-                return make_response(jsonify({'message': 'User unauthorized'}), 401)
-        return {'message': 'User unauthorized'}, 401    
-
+        else:
+            return {'message': 'User unauthorized'}, 401
         
 
     # DELETE
@@ -2095,44 +2472,164 @@ class Notification_update(Resource):
             return make_response(jsonify({'message': 'User unauthorized'}), 401)
 
         
+class Search(Resource):
+    @jwt_required()
+    def post(self):
+        user_id = get_jwt_identity()
+        query = request.args.get('query')
+        current_path = request.args.get('currentPath')
+        
+        if not query:
+            return {'error': 'Query parameter is required'}, 400
+
+        check_user_role = User.query.filter_by(id=user_id).first()
+
+        if not check_user_role or check_user_role.status != "active":
+            return {'error': 'Unauthorized access'}, 403
+
+        result = []
+
+        if check_user_role.role in ['admin', 'super admin'] and check_user_role.status == 'active':
+            if current_path.startswith('/invoice/'):
+                # print(current_path[9:])
+                user =User.query.filter_by(first_name=current_path[9:]).first()
+                result = Invoice.query.filter_by(seller_id=user.id).join(Sale).join(Customer).join(User).join(Inventory).filter(
+                    Invoice.id.ilike(f'%{query}%') |
+                    Sale.id.ilike(f'%{query}%') |
+                    Customer.first_name.ilike(f'%{query}%') |
+                    Customer.last_name.ilike(f'%{query}%') |
+                    User.first_name.ilike(f'%{query}%') |
+                    User.last_name.ilike(f'%{query}%') |
+                    Inventory.make.ilike(f'%{query}%') |
+                    Inventory.model.ilike(f'%{query}%')
+                ).all()
+                schema = InvoiceSchema(many=True)
+            elif current_path == '/inventory':
+                result = Inventory.query.filter(
+                    Inventory.make.ilike(f'%{query}%') | 
+                    Inventory.model.ilike(f'%{query}%')
+                ).all()
+                schema = InventorySchema(many=True)
+            elif current_path == '/workers':
+                result = User.query.filter(
+                    User.first_name.ilike(f'%{query}%') | 
+                    User.last_name.ilike(f'%{query}%')
+                ).all()
+                schema = UserSchema(many=True)
+            elif current_path == '/customers':
+                result = Customer.query.filter(
+                    Customer.first_name.ilike(f'%{query}%') | 
+                    Customer.last_name.ilike(f'%{query}%')
+                ).all()
+                schema = CustomerSchema(many=True)
+            elif current_path == '/sales':
+                result = Sale.query.filter(
+                    Sale.history.ilike(f'%{query}%')
+                ).all()
+                schema = SaleSchema(many=True)
+            elif current_path == '/receipt':
+                result = Receipt.query.filter(
+                    Receipt.amount_paid.ilike(f'%{query}%')
+                ).all()
+                schema = ReceiptSchema(many=True)
+            else:
+                return {'error': 'Invalid path'}, 400
+
+        elif check_user_role.role == 'seller' and check_user_role.status == 'active':
+            if current_path == '/invoice':
+                result = Invoice.query.join(Sale).join(Customer).join(User).join(Inventory).filter(
+                    Invoice.seller_id == user_id,
+                    (
+                        
+                        Customer.first_name.ilike(f'%{query}%') |
+                        Customer.last_name.ilike(f'%{query}%') |
+                        User.first_name.ilike(f'%{query}%') |
+                        User.last_name.ilike(f'%{query}%') |
+                        Inventory.make.ilike(f'%{query}%') |
+                        Inventory.model.ilike(f'%{query}%')
+                    )
+                ).all()
+                schema = InvoiceSchema(many=True)
+            elif current_path == '/inventory':
+                result = Inventory.query.filter(
+                    Inventory.make.ilike(f'%{query}%') | 
+                    Inventory.model.ilike(f'%{query}%')
+                ).all()
+                schema = InventorySchema(many=True)
+            elif current_path == '/workers':
+                result = User.query.filter(
+                    User.role == "seller",
+                    User.first_name.ilike(f'%{query}%') | 
+                    User.last_name.ilike(f'%{query}%')
+                ).all()
+                schema = UserSchema(many=True)
+            elif current_path == '/customers':
+                result = Customer.query.filter(
+                    Customer.seller_id == user_id,
+                    Customer.first_name.ilike(f'%{query}%') | 
+                    Customer.last_name.ilike(f'%{query}%')
+                ).all()
+                schema = CustomerSchema(many=True)
+            elif current_path == '/sales':
+                result = Sale.query.filter(
+                    Sale.seller_id == user_id,
+                    Sale.history.ilike(f'%{query}%')
+                ).all()
+                schema = SaleSchema(many=True)
+            elif current_path == '/receipt':
+                result = Receipt.query.filter(
+                    Receipt.user_id == user_id,
+                    Receipt.amount_paid.ilike(f'%{query}%')
+                ).all()
+                schema = ReceiptSchema(many=True)
+            else:
+                return {'error': 'Invalid path'}, 400
+
+        else:
+            return {'error': 'Unauthorized access'}, 403
+
+        return jsonify(schema.dump(result))
 
 
 
 
 
 
-api.add_resource(CheckSession, '/checksession')
-api.add_resource(AllUsers, '/users')
-api.add_resource(OneUser, '/user/<int:id>')
-api.add_resource(Login, '/login')
-api.add_resource(SignupUser, '/signup')
-api.add_resource(inventory_update, "/inventory/<int:id>")
-api.add_resource(INVENTORY, '/inventory')
-api.add_resource(Importations, '/importations')
-api.add_resource(UpdatePassword, '/change_password')
-api.add_resource(UpdateImportation, '/importations/<int:importation_id>')
-api.add_resource(Customers, '/customers')
-api.add_resource(SaleResource, '/sales')
-api.add_resource(SaleItemResource, '/sale/<int:sale_id>')
-api.add_resource(UpdateDetails, '/updatedetails/<int:customer_id>')
-api.add_resource(DeleteDetails, '/deletedetails/<int:customer_id>')
-api.add_resource(AdminSales, '/sellers')
-api.add_resource(OneSellerAdmin, '/seller/<int:sale_id>')
-api.add_resource(Report, '/report')
-api.add_resource(Report_update, '/report/<int:id>')
-api.add_resource(ReceiptAll, '/receipt')
-api.add_resource(Receipt_update, '/receipt/<int:id>')
-api.add_resource(Notification, '/notification')
-api.add_resource(Notification_update, '/notification/<int:id>')
-api.add_resource(InvoiceCreate, '/invoice')
-api.add_resource(InvoiceGet, '/invoice/<int:invoice_id>')
-api.add_resource(InvoiceUpdate, '/updateinvoice/<int:invoice_id>')
-api.add_resource(InvoiceDelete, '/deleteinvoice/<int:invoice_id>')
-api.add_resource(AllInvoices, '/invoices')
-api.add_resource(GeneralInvoices, '/general')
-api.add_resource(AdminInvoice, '/userinvoice/<string:seller_name>')
-api.add_resource(DetailCustomer, '/customer')
-api.add_resource(SaleReviewIfAlreadyCreated, '/saleinvoice')
+api.add_resource(Search, '/api/search')
+api.add_resource(CheckSession, '/api/checksession')
+api.add_resource(AllUsers, '/api/users')
+api.add_resource(OneUser, '/api/user/<int:id>')
+api.add_resource(Login, '/api/login')
+api.add_resource(SignupUser, '/api/signup')
+api.add_resource(inventory_update, "/api/inventory/<int:id>")
+api.add_resource(INVENTORY, '/api/inventory')
+api.add_resource(Importations, '/api/importations')
+api.add_resource(UpdatePassword, '/api/change_password')
+api.add_resource(UpdateImportation, '/api/importations/<int:importation_id>')
+api.add_resource(Customers, '/api/customer')
+api.add_resource(SaleResource, '/api/sales')
+api.add_resource(SaleItemResource, '/api/sale/<int:sale_id>')
+api.add_resource(UpdateDetails, '/api/updatedetails/<int:customer_id>')
+api.add_resource(DeleteDetails, '/api/deletedetails/<int:customer_id>')
+api.add_resource(AdminSales, '/api/sellers')
+api.add_resource(OneSellerAdmin, '/api/seller/<int:sale_id>')
+api.add_resource(ReportRoute, '/api/report')
+api.add_resource(Report_update, '/api/report/<int:id>')
+api.add_resource(ReceiptAll, '/api/receipt')
+api.add_resource(Receipt_update, '/api/receipt/<int:id>')
+api.add_resource(AllNotification, '/api/notification')
+api.add_resource(Notification_update, '/api/notification/<int:id>/read')
+api.add_resource(InvoiceCreate, '/api/invoice')
+api.add_resource(InvoiceGet, '/api/invoice/<int:invoice_id>')
+api.add_resource(InvoiceUpdate, '/api/updateinvoice/<int:invoice_id>')
+api.add_resource(InvoiceDelete, '/api/deleteinvoice/<int:invoice_id>')
+api.add_resource(AllInvoices, '/api/invoices')
+api.add_resource(GeneralInvoices, '/api/general')
+api.add_resource(AdminInvoice, '/api/userinvoice/<string:seller_name>/<int:id>')
+api.add_resource(DetailCustomer, '/api/customer')
+api.add_resource(SaleReviewIfAlreadyCreated, '/api/saleinvoice')
+api.add_resource(OneReceipt, '/api/receipts/<int:id>')
+
 
 if __name__ == "__main__":
     app.run(port=5555, debug=True)

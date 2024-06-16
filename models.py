@@ -106,11 +106,13 @@ class Importation(db.Model, SerializerMixin):
     transport_fee = db.Column(db.Integer, nullable=False)
     currency = db.Column(db.String, nullable=False)
     import_duty = db.Column(db.Integer, nullable=False)
-    import_date = db.Column(db.String, nullable=False)
-    import_document = db.Column(db.String, nullable=False)
+    # import_document = db.Column(db.String, nullable=False)
     car_id = db.Column(db.Integer, db.ForeignKey("inventories.id"), nullable=False)
+    expense = db.Column(db.String, nullable=False)
     created_at = db.Column(db.DateTime, server_default=db.func.now())
     updated_at = db.Column(db.DateTime, onupdate=db.func.now())
+    
+    report = db.relationship('Report' ,backref='importations')
 
     
 class Customer(db.Model, SerializerMixin):
@@ -130,7 +132,7 @@ class Customer(db.Model, SerializerMixin):
     sale = db.relationship("Sale", backref='customer')
     invoice = db.relationship("Invoice", backref='customer')
     report = db.relationship("Report", backref='customer')
-    notification = db.relationship("Notification", backref='customer')
+    # notification = db.relationship("Notification", backref='customer')
     receipt = db.relationship("Receipt", backref='customer')
 
     
@@ -138,7 +140,7 @@ class Sale(db.Model, SerializerMixin):
     __tablename__ = 'sales'
     
     id = db.Column(db.Integer, primary_key=True)
-    commision = db.Column(db.Integer, nullable=False)
+    commision = db.Column(db.Integer, nullable=False, default=0)
     status = db.Column(db.String, nullable=False)
     history = db.Column(db.String, nullable=False)
     discount = db.Column(db.Integer, nullable=False)
@@ -188,12 +190,10 @@ class Report(db.Model, SerializerMixin):
     id = db.Column(db.Integer, primary_key=True)
     company_profit = db.Column(db.Integer, nullable=False)
     sale_id = db.Column(db.Integer, nullable=False)
-    expenses = db.Column(db.Integer, nullable=False)
     inventory_id = db.Column(db.Integer, db.ForeignKey("inventories.id"), nullable=False)
-    sale_date = db.Column(db.Integer, nullable=False)
     customer_id = db.Column(db.Integer, db.ForeignKey("customers.id"), nullable=False)
     seller_id = db.Column(db.Integer, db.ForeignKey("user.id"), nullable=False)
-    importation_id = db.Column(db.Integer, nullable=False)
+    importation_id = db.Column(db.Integer,db.ForeignKey("importations.id"), nullable=False)
     created_at = db.Column(db.DateTime, server_default=db.func.now())
     updated_at = db.Column(db.DateTime, onupdate=db.func.now())
 
@@ -203,8 +203,11 @@ class Notification(db.Model, SerializerMixin):
 
     id = db.Column(db.Integer, primary_key=True)
     user_id = db.Column(db.Integer, db.ForeignKey("user.id"), nullable=False)
-    customer_id = db.Column(db.Integer, db.ForeignKey("customers.id"), nullable=False)
+    # customer_id = db.Column(db.Integer, db.ForeignKey("customers.id"), nullable=False)
     message = db.Column(db.String, nullable=False)
+    seller_read = db.Column(db.Boolean, default=False)
+    admin_read = db.Column(db.Boolean, default=False)
+    super_admin_read = db.Column(db.Boolean, default=False)
     notification_type = db.Column(db.String, nullable=False)
     created_at = db.Column(db.DateTime, server_default=db.func.now())
     updated_at = db.Column(db.DateTime, onupdate=db.func.now())
@@ -218,8 +221,6 @@ class Receipt(db.Model, SerializerMixin):
     customer_id = db.Column(db.Integer, db.ForeignKey("customers.id"), nullable=False)
     invoice_id = db.Column(db.Integer, nullable=False)
     amount_paid = db.Column(db.Integer, nullable=False)
-    # commission = db.Column(db.Integer, nullable=False)
-    # time_stamp = db.Column(db.DateTime, server_default=db.func.now())
     created_at = db.Column(db.DateTime, server_default=db.func.now())
     updated_at = db.Column(db.DateTime, onupdate=db.func.now())
 
