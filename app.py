@@ -5,6 +5,7 @@ from flask import request, jsonify, make_response
 from flask_bcrypt import check_password_hash, generate_password_hash
 from schemas import InvoiceSchema, InventorySchema, UserSchema, CustomerSchema, SaleSchema, ReceiptSchema
 from flask_jwt_extended import  create_access_token, get_jwt_identity, jwt_required
+from sqlalchemy import or_
 import cloudinary
 import cloudinary.uploader
 import cloudinary.api
@@ -1140,7 +1141,8 @@ class SaleResource(Resource):
 
         if check_user_role.role == 'seller' and check_user_role.status == "active":
             serialized_sales = []
-            sales = Sale.query.filter_by(seller_id=check_user_role.id).all()
+            sales = Sale.query.filter_by(seller_id=check_user_role.id).filter(or_(Sale.status == "Completed", Sale.status == "Pending")).all()
+
             customers = Customer.query.all()
             customer_dict = {customer.id: customer for customer in customers}  # Create a dictionary for quick lookup
             
@@ -1345,7 +1347,7 @@ class SaleItemResource(Resource):
             db.session.add(notification)
             db.session.commit()
 
-            return make_response(jsonify({'message': 'Sale updated successfully'}), 201)
+            return make_response(jsonify({'message': 'Sale updated successfully', 'sale_id': sale.id}), 201)
 
     # DELETE
     # who should be deleting a sale ?
@@ -1906,7 +1908,7 @@ class OneReceipt(Resource):
         return make_response(jsonify(serialized_receipt), 200)
 
 class InvoiceCreate(Resource):
-    decorators = [limiter.limit("2 per minute")]
+    # decorators = [limiter.limit("2 per minute")]
     @jwt_required()
     def post(self):
         user_id = get_jwt_identity()
@@ -1996,7 +1998,7 @@ class InvoiceCreate(Resource):
 
 
 class GeneralInvoices(Resource):
-    decorators = [limiter.limit("5 per minute")]
+    # decorators = [limiter.limit("5 per minute")]
     
     @jwt_required()
     def get(self):
@@ -2036,7 +2038,7 @@ class GeneralInvoices(Resource):
             return make_response(jsonify({"Message": "user unauthorized"}), 401)
 
 class AllInvoices(Resource):
-    decorators = [limiter.limit("5 per minute")]
+    # decorators = [limiter.limit("5 per minute")]
     
     @jwt_required()
     def get(self):
@@ -2099,6 +2101,7 @@ class AllInvoices(Resource):
                     'amount_paid': invoice.amount_paid,
                     'fee': invoice.fee,
                     'tax': invoice.tax,
+                    'sale_id': invoice.sale_id,
                     'currency': invoice.currency,
                     'seller_name': {
                         'id': seller.id,
@@ -2134,7 +2137,7 @@ class AllInvoices(Resource):
         else:
             return make_response(jsonify({'message': 'User unauthorized'}), 401)
 class AdminInvoice(Resource):
-    decorators = [limiter.limit("5 per minute")]
+    # decorators = [limiter.limit("5 per minute")]
     
     @jwt_required()
     def get(self, seller_name,id):
@@ -2205,7 +2208,7 @@ class AdminInvoice(Resource):
 
 class InvoiceGet(Resource):
     
-    decorators = [limiter.limit("5 per minute")]
+    # decorators = [limiter.limit("5 per minute")]
     @jwt_required()
     def get(self, invoice_id):
         user_id = get_jwt_identity()
@@ -2267,24 +2270,42 @@ class InvoiceUpdate(Resource):
     @jwt_required()
     def put(self, invoice_id):
         user_id = get_jwt_identity()
-
         check_user_role = User.query.filter_by(id=user_id).first()
+
         if check_user_role.role == 'seller' and check_user_role.status == "active":
             invoice = Invoice.query.filter_by(id=invoice_id).first()
-            if invoice.seller_id==user_id:
+            if invoice.seller_id == user_id:
+                data = request.json
+                amount_paid = data.get('amount_paid')
+                total_paid = float(amount_paid) + float(invoice.amount_paid)
                 
-
-                data = request.get_json()
-                for key, value in data.items():
-                    if hasattr(invoice, key):
-                        setattr(invoice, key, value)
-
+                invoice.amount_paid = total_paid
+                invoice.balance = float(invoice.total_amount) - float(total_paid)
                 db.session.commit()
+
+                # Update PDF and send email if needed
+                customer_details = Customer.query.filter_by(id=invoice.customer_id).first()
+                inventory = Inventory.query.filter_by(id=invoice.vehicle_id).first()
+                pdf_data = generate_pdf(invoice, customer_details, inventory)
+
+                send_email_with_pdf(
+                    email=customer_details.email,
+                    subject=f'Updated Invoice for {inventory.make} {inventory.model}',
+                    body=(
+                        f'Thank you for your payment towards {inventory.make} {inventory.model}. '
+                        f'You have currently paid {invoice.currency} {total_paid}, remaining balance is {invoice.currency} {invoice.balance}. '
+                        f'Please complete the balance using the installments discussed. '
+                        f'Remember to ask for the print out of your updated invoice. Thank you again!'
+                    ),
+                    attachment=pdf_data,
+                    attachment_name=f'updated_invoice_{invoice.id}.pdf'
+                )
+
                 return make_response(jsonify({'message': 'Invoice updated successfully'}), 200)
             return make_response(jsonify({'message': 'User unauthorized'}), 401)
         else:
-            
             return make_response(jsonify({'message': 'User unauthorized'}), 401)
+
 # this route is not protected only the seller can produce an invoice
 class InvoiceDelete(Resource):
     @jwt_required()
