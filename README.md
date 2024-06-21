@@ -50,18 +50,60 @@
 
 <!-- END doctoc generated TOC please keep comment here to allow auto update -->
 
-# Car_dealers_backend
-
-This project is based on making cardealership management easier and more secure amongest cardealershipowner and the
-seller of the cars
+# Cardealership Management System Back-End 
 
 ## Introduction
+
+This project is based on making cardealership management easier and more secure amongest cardealership owner,
+seller of the cars and their customers.
+
+Key features include:
+
+- At the top of the heirachy there is a super admin and admin who see's everything that is running throught the whole system that is:
+
+    1. Having a view on all sales, custmomer, invoices and receipts.
+    2. They are incharge of adding an admin and a seller.
+    3. Add inventory and its details.
+
+- Followed is the seller who is the one providing data to the admins and super admins
+
+    1. Add customer
+    2. Creates a sale, invoice and receipt
+
+
+
 
 This documentation is made for (Dennis Irungu) and other developers to have the whole idea of the
 do and dont's of my API, the things that are provided by the API, the endpoints, data type that are
 supported at the server and the relationship between all the models and how they work.
 
+## Installation
 
+To clone this repostory use this  [ssh link](git@github.com:irungudennisnganga/Car_dealers_backend.git) or [https](https://github.com/irungudennisnganga/Car_dealers_backend.git) and run this command on your terminal
+
+```bash
+    git clone https://github.com/irungudennisnganga/Car_dealers_backend.git
+```
+
+To install the dependecy required to run the project.
+
+First create a python environment using this command
+
+```bash
+    pipenv install
+```
+
+This command will install all the required the packages which are used to run to program.
+
+```bash
+    pipenv shell
+```
+
+``` bash
+    python app.py
+```
+
+This command above will start the backend server
 
 ## ROUTE MANAGEMENT
 
@@ -799,6 +841,7 @@ Endpoints:
 
     Authentication: Requires a valid JWT token.
     Authorization: Only users with the role of 'super admin' or 'admin' with an active status can update importation records.
+
 #### Steps:
 
     1. Authenticate and authorize the user:
