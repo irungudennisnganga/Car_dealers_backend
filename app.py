@@ -988,7 +988,7 @@ class Customers(Resource):
             db.session.add(notification)
             db.session.commit()
             
-            send_email(email=email,subject="Customer Registration",body="Your Information has been recorded Successful and Safe.Thank You and wlcome again")
+            send_email(email=email,subject="Customer Registration",body="Your Information has been recorded Successful and Safe.Thank You and wellcome again")
 
             return {'message': 'Customer details added successfully'}, 201
 class UpdateDetails(Resource):  
@@ -2626,7 +2626,7 @@ api.add_resource(INVENTORY, '/api/inventory')
 api.add_resource(Importations, '/api/importations')
 api.add_resource(UpdatePassword, '/api/change_password')
 api.add_resource(UpdateImportation, '/api/importations/<int:importation_id>')
-api.add_resource(Customers, '/api/customer')
+api.add_resource(Customers, '/api/customers')
 api.add_resource(SaleResource, '/api/sales')
 api.add_resource(SaleItemResource, '/api/sale/<int:sale_id>')
 api.add_resource(UpdateDetails, '/api/updatedetails/<int:customer_id>')
